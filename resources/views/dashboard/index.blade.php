@@ -44,7 +44,7 @@
 @endphp
 
 @section('content')
-    <div class="space-y-3">
+    <div id="dashboard-root" class="space-y-3">
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             @foreach ($cards as $card)
                 <section
@@ -55,7 +55,42 @@
                                 {{ $card['label'] }}
                             </p>
 
-                            <p class="mt-1 text-xl font-bold text-gray-800 dark:text-gray-100" x-data="dashboardCounter({{ (int) $card['value'] }})"
+                            <p class="mt-1 text-xl font-bold text-gray-800 dark:text-gray-100" x-data="{
+                                value: 0,
+                                target: {{ (int) $card['value'] }},
+                                started: false,
+                                start() {
+                                    if (this.started) return;
+                                    this.started = true;
+                            
+                                    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                            
+                                    if (reduceMotion) {
+                                        this.value = this.target;
+                                        return;
+                                    }
+                            
+                                    const duration = 900;
+                                    const startTime = performance.now();
+                                    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+                            
+                                    const animate = (currentTime) => {
+                                        const elapsed = currentTime - startTime;
+                                        const progress = Math.min(elapsed / duration, 1);
+                            
+                                        this.value = Math.round(this.target * easeOutCubic(progress));
+                            
+                                        if (progress < 1) {
+                                            requestAnimationFrame(animate);
+                                            return;
+                                        }
+                            
+                                        this.value = this.target;
+                                    };
+                            
+                                    requestAnimationFrame(animate);
+                                }
+                            }"
                                 x-init="start()" x-text="value"></p>
                         </div>
 
@@ -196,62 +231,42 @@
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <script>
-        window.dashboardCounter = function(target) {
-            return {
-                value: 0,
-                target: Number(target) || 0,
-                started: false,
+        (function() {
+            const lineLabels = @json($lineChart['labels']);
+            const lineData = @json($lineChart['data']);
 
-                start() {
-                    if (this.started) {
-                        return;
-                    }
+            const donutData = [
+                {{ (int) $kondisiChart['baik'] }},
+                {{ (int) $kondisiChart['lumayan'] }},
+                {{ (int) $kondisiChart['rusak'] }},
+                {{ (int) $kondisiChart['rusak_parah'] }},
+            ];
 
-                    this.started = true;
+            const barLabels = @json($barChart['labels']);
+            const barData = @json($barChart['data']);
 
-                    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const initDashboardCharts = () => {
+                const root = document.getElementById('dashboard-root');
 
-                    if (reduceMotion) {
-                        this.value = this.target;
-                        return;
-                    }
-
-                    const duration = 900;
-                    const startTime = performance.now();
-
-                    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-
-                    const animate = (currentTime) => {
-                        const elapsed = currentTime - startTime;
-                        const progress = Math.min(elapsed / duration, 1);
-
-                        this.value = Math.round(this.target * easeOutCubic(progress));
-
-                        if (progress < 1) {
-                            requestAnimationFrame(animate);
-                            return;
-                        }
-
-                        this.value = this.target;
-                    };
-
-                    requestAnimationFrame(animate);
-                },
-            };
-        };
-
-        document.addEventListener('DOMContentLoaded', function() {
-            window.chartInstances = [];
-
-            const bootCharts = () => {
-                if (typeof Chart === 'undefined') {
+                if (!root || typeof Chart === 'undefined') {
                     return;
                 }
 
+                if (Array.isArray(window.chartInstances)) {
+                    window.chartInstances.forEach((instance) => {
+                        if (instance && typeof instance.destroy === 'function') {
+                            instance.destroy();
+                        }
+                    });
+                }
+
+                window.chartInstances = [];
+
                 const isDark = () => document.documentElement.classList.contains('dark');
+                const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
                 const gridColor = () => (isDark() ? '#374151' : '#e5e7eb');
                 const tickColor = () => (isDark() ? '#9ca3af' : '#6b7280');
-                const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
                 const chartAnimation = reduceMotion ?
                     false :
@@ -274,23 +289,20 @@
                     },
                 };
 
-                const lineLabels = @json($lineChart['labels']);
-                const lineData = @json($lineChart['data']);
+                const buildLineChart = () => {
+                    const canvas = document.getElementById('lineChart');
 
-                const donutData = [
-                    {{ (int) $kondisiChart['baik'] }},
-                    {{ (int) $kondisiChart['lumayan'] }},
-                    {{ (int) $kondisiChart['rusak'] }},
-                    {{ (int) $kondisiChart['rusak_parah'] }},
-                ];
+                    if (!canvas) {
+                        return;
+                    }
 
-                const barLabels = @json($barChart['labels']);
-                const barData = @json($barChart['data']);
+                    const existing = Chart.getChart(canvas);
 
-                const lineCanvas = document.getElementById('lineChart');
+                    if (existing) {
+                        existing.destroy();
+                    }
 
-                if (lineCanvas) {
-                    const lineChart = new Chart(lineCanvas, {
+                    const chart = new Chart(canvas, {
                         type: 'line',
                         data: {
                             labels: lineLabels,
@@ -345,13 +357,23 @@
                         },
                     });
 
-                    window.chartInstances.push(lineChart);
-                }
+                    window.chartInstances.push(chart);
+                };
 
-                const donutCanvas = document.getElementById('donutChart');
+                const buildDonutChart = () => {
+                    const canvas = document.getElementById('donutChart');
 
-                if (donutCanvas) {
-                    const donutChart = new Chart(donutCanvas, {
+                    if (!canvas) {
+                        return;
+                    }
+
+                    const existing = Chart.getChart(canvas);
+
+                    if (existing) {
+                        existing.destroy();
+                    }
+
+                    const chart = new Chart(canvas, {
                         type: 'doughnut',
                         data: {
                             labels: [
@@ -364,7 +386,7 @@
                                 data: donutData,
                                 backgroundColor: ['#059669', '#2563eb', '#f59e0b', '#ef4444'],
                                 borderWidth: 0,
-                                hoverOffset: 6,
+                                hoverOffset: reduceMotion ? 0 : 6,
                             }, ],
                         },
                         options: {
@@ -386,13 +408,23 @@
                         },
                     });
 
-                    window.chartInstances.push(donutChart);
-                }
+                    window.chartInstances.push(chart);
+                };
 
-                const barCanvas = document.getElementById('barChart');
+                const buildBarChart = () => {
+                    const canvas = document.getElementById('barChart');
 
-                if (barCanvas) {
-                    const barChart = new Chart(barCanvas, {
+                    if (!canvas) {
+                        return;
+                    }
+
+                    const existing = Chart.getChart(canvas);
+
+                    if (existing) {
+                        existing.destroy();
+                    }
+
+                    const chart = new Chart(canvas, {
                         type: 'bar',
                         data: {
                             labels: barLabels,
@@ -435,11 +467,30 @@
                         },
                     });
 
-                    window.chartInstances.push(barChart);
-                }
+                    window.chartInstances.push(chart);
+                };
+
+                buildLineChart();
+                buildDonutChart();
+                buildBarChart();
             };
 
-            bootCharts();
-        });
+            const bootWhenReady = () => {
+                if (typeof Chart === 'undefined') {
+                    window.setTimeout(bootWhenReady, 80);
+                    return;
+                }
+
+                initDashboardCharts();
+            };
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bootWhenReady, {
+                    once: true
+                });
+            } else {
+                bootWhenReady();
+            }
+        })();
     </script>
 @endpush

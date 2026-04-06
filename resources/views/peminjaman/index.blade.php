@@ -10,6 +10,8 @@
             'selesai' => 'Selesai',
             'semua' => 'Semua',
         ];
+
+        $queryTanpaPage = request()->except('page');
     @endphp
 
     <div class="space-y-3">
@@ -27,12 +29,13 @@
         </div>
 
         <div class="border-b border-gray-200 dark:border-gray-700">
-            <nav class="-mb-px flex gap-4">
+            <nav class="-mb-px flex gap-4" aria-label="Filter status peminjaman">
                 @foreach ($tabLinks as $key => $label)
-                    <a href="{{ route('peminjaman.index', array_merge(request()->except('page'), ['tab' => $key])) }}"
+                    <a href="{{ route('peminjaman.index', array_merge($queryTanpaPage, ['tab' => $key])) }}"
                         class="border-b-2 px-1 py-2 text-sm {{ $tab === $key
                             ? 'border-blue-600 font-medium text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}">
+                            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}"
+                        @if ($tab === $key) aria-current="page" @endif>
                         {{ $label }}
 
                         @if (isset($counts[$key]))
@@ -52,7 +55,7 @@
                     <label for="q" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Cari nama / kode
                     </label>
-                    <input id="q" name="q" type="text" value="{{ $filters['q'] }}"
+                    <input id="q" name="q" type="text" value="{{ $filters['q'] ?? '' }}" autocomplete="off"
                         class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                 </div>
 
@@ -60,7 +63,7 @@
                     <label for="dari" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Dari
                     </label>
-                    <input id="dari" name="dari" type="date" value="{{ $filters['dari'] }}"
+                    <input id="dari" name="dari" type="date" value="{{ $filters['dari'] ?? '' }}"
                         class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                 </div>
 
@@ -68,14 +71,14 @@
                     <label for="sampai" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Sampai
                     </label>
-                    <input id="sampai" name="sampai" type="date" value="{{ $filters['sampai'] }}"
+                    <input id="sampai" name="sampai" type="date" value="{{ $filters['sampai'] ?? '' }}"
                         class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                 </div>
 
                 <div class="self-end">
                     <button type="submit"
                         class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
-                        <i class="bi bi-funnel"></i>
+                        <i class="bi bi-funnel" aria-hidden="true"></i>
                         <span>Terapkan</span>
                     </button>
                 </div>
@@ -121,6 +124,10 @@
                         </thead>
                         <tbody>
                             @foreach ($peminjaman as $item)
+                                @php
+                                    $isAktif = $item->status === 'aktif';
+                                @endphp
+
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 font-mono text-sm text-gray-800 dark:border-gray-700 dark:text-gray-100">
@@ -152,11 +159,23 @@
                                     </td>
 
                                     <td class="border-b border-gray-100 px-3 py-2 text-right dark:border-gray-700">
-                                        <a href="{{ route('peminjaman.show', $item) }}"
-                                            class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700">
-                                            <i class="bi bi-eye"></i>
-                                            <span>Detail</span>
-                                        </a>
+                                        <div class="inline-flex items-center gap-1.5">
+                                            @if ($isAktif)
+                                                <a href="{{ route('peminjaman.show', ['peminjaman' => $item, 'aksi' => 'kembalikan']) }}"
+                                                    class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700"
+                                                    title="Proses pengembalian" aria-label="Proses pengembalian">
+                                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
+                                                    <span>Kembalikan</span>
+                                                </a>
+                                            @endif
+
+                                            <a href="{{ route('peminjaman.show', $item) }}"
+                                                class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700"
+                                                title="Lihat detail peminjaman" aria-label="Lihat detail peminjaman">
+                                                <i class="bi bi-eye" aria-hidden="true"></i>
+                                                <span>Detail</span>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach
@@ -167,6 +186,10 @@
 
             <div class="grid gap-3 lg:hidden">
                 @foreach ($peminjaman as $item)
+                    @php
+                        $isAktif = $item->status === 'aktif';
+                    @endphp
+
                     <div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
@@ -189,10 +212,20 @@
                             <span>{{ $item->detail_peminjaman_count }} item</span>
                         </div>
 
-                        <div class="mt-3 flex gap-2">
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            @if ($isAktif)
+                                <a href="{{ route('peminjaman.show', ['peminjaman' => $item, 'aksi' => 'kembalikan']) }}"
+                                    class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700"
+                                    title="Proses pengembalian" aria-label="Proses pengembalian">
+                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
+                                    <span>Kembalikan</span>
+                                </a>
+                            @endif
+
                             <a href="{{ route('peminjaman.show', $item) }}"
-                                class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700">
-                                <i class="bi bi-eye"></i>
+                                class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700"
+                                title="Lihat detail peminjaman" aria-label="Lihat detail peminjaman">
+                                <i class="bi bi-eye" aria-hidden="true"></i>
                                 <span>Detail</span>
                             </a>
                         </div>
@@ -201,7 +234,7 @@
             </div>
 
             <div class="pt-1">
-                {{ $peminjaman->appends(request()->query())->links('components.pagination') }}
+                {{ $peminjaman->appends($queryTanpaPage)->links('components.pagination') }}
             </div>
         @else
             <x-empty-state icon="bi-people" title="Belum ada data peminjaman"

@@ -28,12 +28,12 @@ class UnitBarang extends Model
 
     public function barang(): BelongsTo
     {
-        return $this->belongsTo(Barang::class, 'barang_id');
+        return $this->belongsTo(Barang::class);
     }
 
     public function detailPeminjaman(): HasMany
     {
-        return $this->hasMany(DetailPeminjaman::class, 'unit_barang_id');
+        return $this->hasMany(DetailPeminjaman::class);
     }
 
     public function getLabelKondisiAttribute(): string

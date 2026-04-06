@@ -1,16 +1,17 @@
-@extends('layouts.app')
+        @extends('layouts.app')
 
 @section('title', 'Laporan')
 @section('meta_description', 'Laporan inventaris, transaksi, dan peminjaman Shiro.')
 
 @section('content')
     @php
-        $periodeLabel =
-            filled($filters['dari'] ?? null) && filled($filters['sampai'] ?? null)
-                ? \Carbon\Carbon::parse($filters['dari'])->format('d M Y') .
-                    ' - ' .
-                    \Carbon\Carbon::parse($filters['sampai'])->format('d M Y')
-                : 'Semua periode';
+        $hasPeriode = filled($filters['dari'] ?? null) && filled($filters['sampai'] ?? null);
+
+        $periodeLabel = $hasPeriode
+            ? \Carbon\Carbon::parse($filters['dari'])->format('d M Y') .
+                ' - ' .
+                \Carbon\Carbon::parse($filters['sampai'])->format('d M Y')
+            : 'Semua periode';
     @endphp
 
     <div class="space-y-4">
@@ -24,8 +25,7 @@
         </div>
 
         <form method="GET" action="{{ route('laporan.index') }}"
-            class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
-            x-data="{ loadingPdf: false }">
+            class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
             <div class="grid grid-cols-1 gap-3 lg:grid-cols-[160px_160px_auto_auto]">
                 <div>
                     <label for="dari" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -52,21 +52,11 @@
                 </div>
 
                 <div class="self-end">
-                    <button type="button"
-                        data-href="{{ route('laporan.pdf', ['dari' => $filters['dari'], 'sampai' => $filters['sampai']]) }}"
-                        @click="loadingPdf = true; window.location.href = $el.dataset.href"
-                        :class="loadingPdf ? 'opacity-70 cursor-not-allowed' : ''" :disabled="loadingPdf"
+                    <a href="{{ route('laporan.pdf', ['dari' => $filters['dari'], 'sampai' => $filters['sampai']]) }}"
                         class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600">
-                        <span x-show="!loadingPdf" class="inline-flex items-center gap-2">
-                            <i class="bi bi-file-pdf"></i>
-                            <span>Export PDF</span>
-                        </span>
-
-                        <span x-show="loadingPdf" class="inline-flex items-center gap-2">
-                            <i class="bi bi-arrow-repeat animate-spin-smooth"></i>
-                            <span>Menyiapkan PDF...</span>
-                        </span>
-                    </button>
+                        <i class="bi bi-file-pdf"></i>
+                        <span>Export PDF</span>
+                    </a>
                 </div>
             </div>
 
@@ -282,6 +272,10 @@
                                         $trx->jenis === 'masuk'
                                             ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-900/20 dark:text-emerald-400'
                                             : 'bg-gray-100 text-gray-700 ring-gray-400/20 dark:bg-gray-700 dark:text-gray-200';
+
+                                    $tujuanLabel =
+                                        $trx->lokasiTujuan?->nama ??
+                                        ($trx->lokasi_tujuan_manual ?? ($trx->sumber_tujuan ?? '—'));
                                 @endphp
 
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
@@ -312,7 +306,7 @@
                                     </td>
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                        {{ $trx->lokasiTujuan?->nama ?? ($trx->lokasi_tujuan_manual ?? ($trx->sumber_tujuan ?? '—')) }}
+                                        {{ $tujuanLabel }}
                                     </td>
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">

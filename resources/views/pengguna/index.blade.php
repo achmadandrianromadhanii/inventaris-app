@@ -239,7 +239,7 @@
     </div>
 
     <div x-data="{ open: @js(old('_form') === 'tambah-pengguna') }" @open-tambah-pengguna.window="open = true">
-        <x-modal name="open" title="Tambah Pengguna" max-width="max-w-lg">
+        <x-modal1 name="open" title="Tambah Pengguna" max-width="max-w-lg">
             <form method="POST" action="{{ route('pengguna.store') }}" class="space-y-3" x-data="{ loading: false }"
                 @submit="loading = true">
                 @csrf
@@ -313,7 +313,7 @@
                     </button>
                 </div>
             </form>
-        </x-modal>
+        </x-modal1>
     </div>
 
     @foreach ($pengguna as $item)
@@ -322,7 +322,7 @@
         @endphp
 
         <div x-data="{ open: @js(old('_form') === 'edit-pengguna-' . $item->id) }" @open-edit-pengguna-{{ $item->id }}.window="open = true">
-            <x-modal name="open" title="Edit Pengguna" max-width="max-w-lg">
+            <x-modal1 name="open" title="Edit Pengguna" max-width="max-w-lg">
                 <form method="POST" action="{{ route('pengguna.update', $item) }}" class="space-y-3"
                     x-data="{ loading: false }" @submit="loading = true">
                     @csrf
@@ -379,11 +379,11 @@
                         </button>
                     </div>
                 </form>
-            </x-modal>
+            </x-modal1>
         </div>
 
         <div x-data="{ open: @js(old('_form') === 'reset-password-' . $item->id) }" @open-reset-password-{{ $item->id }}.window="open = true">
-            <x-modal name="open" title="Reset Password" max-width="max-w-lg">
+            <x-modal1 name="open" title="Reset Password" max-width="max-w-lg">
                 <form method="POST" action="{{ route('pengguna.reset-password', $item) }}" class="space-y-3"
                     x-data="{ loading: false }" @submit="loading = true">
                     @csrf
@@ -439,7 +439,7 @@
                         </button>
                     </div>
                 </form>
-            </x-modal>
+            </x-modal1>
         </div>
 
         <div x-data="{ open: false }" @open-hapus-pengguna-{{ $item->id }}.window="open = true">

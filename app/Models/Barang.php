@@ -76,20 +76,38 @@ class Barang extends Model
 
     public function getLabelMerekAttribute(): string
     {
-        return $this->merek?->nama ?? $this->merek_manual ?? 'Tidak Diketahui';
+        if ($this->merek?->nama) {
+            return $this->merek->nama;
+        }
+
+        if (filled($this->merek_manual)) {
+            return $this->merek_manual;
+        }
+
+        return 'Tidak Diketahui';
     }
 
     public function getLabelLokasiAttribute(): string
     {
-        return $this->lokasi?->nama ?? $this->lokasi_manual ?? 'Tidak Diketahui';
+        if ($this->lokasi?->nama) {
+            return $this->lokasi->nama;
+        }
+
+        if (filled($this->lokasi_manual)) {
+            return $this->lokasi_manual;
+        }
+
+        return 'Tidak Diketahui';
     }
 
     public function getLabelKondisiStokAttribute(): string
     {
+        $kondisi = (int) $this->kondisi_stok;
+
         return match (true) {
-            $this->kondisi_stok >= 80 => 'Baik',
-            $this->kondisi_stok >= 60 => 'Lumayan',
-            $this->kondisi_stok >= 35 => 'Rusak',
+            $kondisi >= 80 => 'Baik',
+            $kondisi >= 60 => 'Lumayan',
+            $kondisi >= 35 => 'Rusak',
             default => 'Rusak Parah',
         };
     }

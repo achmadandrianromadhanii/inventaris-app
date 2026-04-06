@@ -1,11 +1,16 @@
 @extends('layouts.app')
 
 @section('title', 'Barang Masuk')
-@section('meta_description', 'Catat barang masuk inventaris Shiro.')
+@section('meta_description', 'Catat barang masuk inventaris Website.')
 
 @section('content')
     @php
         $riwayatMasukData = $riwayatMasuk ?? ($riwayat ?? collect());
+        $filterTanggal = $filterTanggal ?? [
+            'dari' => now()->subDays(30)->format('Y-m-d'),
+            'sampai' => now()->format('Y-m-d'),
+        ];
+        $isPaginator = method_exists($riwayatMasukData, 'links');
     @endphp
 
     <div class="space-y-3">
@@ -35,8 +40,19 @@
             
                 init() {
                     if (this.selected) {
-                        this.query = this.selected.nama ?? '';
-                        this.tipe = this.selected.tipe ?? this.tipe;
+                        this.query = this.selected.nama || '';
+                        this.tipe = this.selected.tipe || this.tipe;
+                    }
+                },
+            
+                setMode(mode) {
+                    this.modeBarang = mode;
+                    this.results = [];
+            
+                    if (mode === 'baru') {
+                        this.selected = null;
+                        this.query = '';
+                        this.tipe = @js(old('tipe', 'aset'));
                     }
                 },
             
@@ -65,20 +81,20 @@
                     clearTimeout(this.searchTimeout);
             
                     this.searchTimeout = setTimeout(async () => {
-                        if (this.query.trim().length < 2) {
+                        const keyword = this.query.trim();
+            
+                        if (keyword.length < 2) {
                             this.results = [];
                             return;
                         }
             
                         try {
-                            const response = await fetch(
-                                `{{ route('api.barang.search') }}?q=${encodeURIComponent(this.query)}`, {
-                                    headers: {
-                                        'X-Requested-With': 'XMLHttpRequest',
-                                        'Accept': 'application/json',
-                                    },
-                                }
-                            );
+                            const response = await fetch(`{{ route('api.barang.search') }}?q=${encodeURIComponent(keyword)}`, {
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Accept': 'application/json',
+                                },
+                            });
             
                             if (!response.ok) {
                                 this.results = [];
@@ -87,7 +103,7 @@
             
                             const data = await response.json();
                             this.results = Array.isArray(data) ? data : [];
-                        } catch (error) {
+                        } catch (_) {
                             this.results = [];
                         }
                     }, 250);
@@ -95,9 +111,9 @@
             
                 pilihBarang(item) {
                     this.selected = item;
-                    this.query = item.nama ?? '';
+                    this.query = item.nama || '';
                     this.results = [];
-                    this.tipe = item.tipe ?? this.tipe;
+                    this.tipe = item.tipe || this.tipe;
                 },
             
                 resetBarang() {
@@ -111,8 +127,7 @@
             <div class="space-y-4">
                 <div>
                     <div class="inline-flex w-fit gap-2 rounded-lg bg-gray-100 p-1 dark:bg-gray-700">
-                        <button type="button"
-                            @click="modeBarang = 'baru'; selected = null; query = ''; results = []; tipe = 'aset'"
+                        <button type="button" @click="setMode('baru')"
                             :class="modeBarang === 'baru'
                                 ?
                                 'bg-white text-gray-800 shadow dark:bg-gray-800 dark:text-gray-100' :
@@ -121,7 +136,7 @@
                             Barang Baru
                         </button>
 
-                        <button type="button" @click="modeBarang = 'existing'"
+                        <button type="button" @click="setMode('existing')"
                             :class="modeBarang === 'existing'
                                 ?
                                 'bg-white text-gray-800 shadow dark:bg-gray-800 dark:text-gray-100' :
@@ -138,7 +153,7 @@
                     @enderror
                 </div>
 
-                <div x-cloak x-show="modeBarang === 'baru'" x-transition class="space-y-4">
+                <div x-cloak x-show="modeBarang === 'baru'" class="space-y-4">
                     <div>
                         <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                             Tipe Barang
@@ -220,7 +235,7 @@
                                     <option value="lainnya" @selected(old('merek_id') === 'lainnya')>Lainnya</option>
                                 </select>
 
-                                <div x-cloak x-show="merekId === 'lainnya'" x-transition class="mt-2">
+                                <div x-cloak x-show="merekId === 'lainnya'" class="mt-2">
                                     <input name="merek_manual" type="text" value="{{ old('merek_manual') }}"
                                         placeholder="Masukkan merek manual"
                                         :disabled="modeBarang !== 'baru' || merekId !== 'lainnya'"
@@ -252,7 +267,7 @@
                                     <option value="lainnya" @selected(old('lokasi_id') === 'lainnya')>Lainnya</option>
                                 </select>
 
-                                <div x-cloak x-show="lokasiId === 'lainnya'" x-transition class="mt-2">
+                                <div x-cloak x-show="lokasiId === 'lainnya'" class="mt-2">
                                     <input name="lokasi_manual" type="text" value="{{ old('lokasi_manual') }}"
                                         placeholder="Masukkan lokasi manual"
                                         :disabled="modeBarang !== 'baru' || lokasiId !== 'lainnya'"
@@ -314,7 +329,7 @@
                                 @enderror
                             </div>
 
-                            <div x-cloak x-show="tipe === 'aset'" x-transition>
+                            <div x-cloak x-show="tipe === 'aset'">
                                 <label for="serial_number_list_baru"
                                     class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                                     Serial Number
@@ -345,7 +360,7 @@
                     </div>
                 </div>
 
-                <div x-cloak x-show="modeBarang === 'existing'" x-transition class="space-y-4">
+                <div x-cloak x-show="modeBarang === 'existing'" class="space-y-4">
                     <div class="relative">
                         <label for="barang_search"
                             class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -376,9 +391,7 @@
                             <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
 
-                        <div x-cloak x-show="results.length > 0" x-transition:enter="transition ease-out duration-100"
-                            x-transition:enter-start="opacity-0 -translate-y-1"
-                            x-transition:enter-end="opacity-100 translate-y-0"
+                        <div x-cloak x-show="results.length > 0"
                             class="absolute z-20 mt-2 w-full rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                             <ul class="max-h-64 overflow-y-auto py-1">
                                 <template x-for="item in results" :key="item.id">
@@ -411,39 +424,39 @@
                         </div>
                     </div>
 
-                    <div x-cloak x-show="selected" x-transition
+                    <div x-cloak x-show="selected"
                         class="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/30 dark:bg-blue-900/10">
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p class="text-sm font-semibold text-blue-800 dark:text-blue-300" x-text="selected?.nama">
-                                </p>
+                                <p class="text-sm font-semibold text-blue-800 dark:text-blue-300"
+                                    x-text="selected ? selected.nama : ''"></p>
                                 <p class="mt-1 text-xs text-blue-700 dark:text-blue-400">
-                                    <span x-text="selected?.kategori"></span> ·
-                                    <span x-text="selected?.merek"></span> ·
-                                    <span x-text="selected?.lokasi"></span>
+                                    <span x-text="selected ? selected.kategori : ''"></span> ·
+                                    <span x-text="selected ? selected.merek : ''"></span> ·
+                                    <span x-text="selected ? selected.lokasi : ''"></span>
                                 </p>
                             </div>
 
                             <div class="flex flex-wrap items-center gap-2">
                                 <span
                                     class="inline-flex items-center rounded-full bg-white px-2 py-1 text-[10px] font-medium text-blue-700 ring-1 ring-blue-600/20 dark:bg-gray-800 dark:text-blue-300">
-                                    <span x-text="selected?.tipe === 'aset' ? 'Aset' : 'Stok'"></span>
+                                    <span x-text="selected ? (selected.tipe === 'aset' ? 'Aset' : 'Stok') : '-'"></span>
                                 </span>
 
                                 <span
                                     class="inline-flex items-center rounded-full bg-white px-2 py-1 text-[10px] font-medium text-blue-700 ring-1 ring-blue-600/20 dark:bg-gray-800 dark:text-blue-300">
-                                    <span x-text="selected?.label_kondisi"></span>
-                                    <span class="ml-1" x-text="selected?.kondisi + '%'"></span>
+                                    <span x-text="selected ? selected.label_kondisi : ''"></span>
+                                    <span class="ml-1" x-text="selected ? selected.kondisi + '%' : ''"></span>
                                 </span>
                             </div>
                         </div>
 
                         <div class="mt-2 text-xs text-blue-700 dark:text-blue-400">
-                            <span x-cloak x-show="selected?.tipe === 'aset'">
-                                Unit tersedia: <strong x-text="selected?.unit_tersedia ?? 0"></strong>
+                            <span x-cloak x-show="selected && selected.tipe === 'aset'">
+                                Unit tersedia: <strong x-text="selected ? (selected.unit_tersedia ?? 0) : 0"></strong>
                             </span>
-                            <span x-cloak x-show="selected?.tipe === 'stok'">
-                                Stok tersedia: <strong x-text="selected?.qty_tersedia ?? 0"></strong>
+                            <span x-cloak x-show="selected && selected.tipe === 'stok'">
+                                Stok tersedia: <strong x-text="selected ? (selected.qty_tersedia ?? 0) : 0"></strong>
                             </span>
                         </div>
                     </div>
@@ -464,7 +477,7 @@
                                 @enderror
                             </div>
 
-                            <div x-cloak x-show="selected && selected.tipe === 'aset'" x-transition>
+                            <div x-cloak x-show="selected && selected.tipe === 'aset'">
                                 <label for="serial_number_list_existing"
                                     class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                                     Serial Number Unit Baru
@@ -490,59 +503,62 @@
                                 @enderror
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                    <div>
-                        <div class="mb-1 flex items-center justify-between gap-3">
-                            <label for="kondisi_saat_itu"
-                                class="block text-xs font-medium text-gray-600 dark:text-gray-300">
-                                Kondisi Saat Itu % <span class="text-red-500">*</span>
-                            </label>
-                            <span class="text-sm font-semibold" :class="warnaKondisiText">
-                                <span x-text="labelKondisi"></span> <span x-text="kondisi + '%'"></span>
-                            </span>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="tanggal_transaksi"
+                                    class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+                                    Tanggal Masuk <span class="text-red-500">*</span>
+                                </label>
+                                <input id="tanggal_transaksi" name="tanggal_transaksi" type="date"
+                                    value="{{ old('tanggal_transaksi', now()->format('Y-m-d')) }}"
+                                    class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                @error('tanggal_transaksi')
+                                    <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div>
+                                <div class="mb-1 flex items-center justify-between gap-3">
+                                    <label for="kondisi_saat_itu"
+                                        class="block text-xs font-medium text-gray-600 dark:text-gray-300">
+                                        Kondisi Saat Itu % <span class="text-red-500">*</span>
+                                    </label>
+                                    <span class="text-sm font-semibold" :class="warnaKondisiText">
+                                        <span x-text="labelKondisi"></span>
+                                        <span x-text="kondisi + '%'"></span>
+                                    </span>
+                                </div>
+
+                                <input id="kondisi_saat_itu" name="kondisi_saat_itu" type="range" min="0"
+                                    max="100" x-model="kondisi" :style="warnaSlider" class="block w-full">
+
+                                <div
+                                    class="mt-2 flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400">
+                                    <span>Rusak Parah 0%</span>
+                                    <span>Rusak 35%</span>
+                                    <span>Lumayan 60%</span>
+                                    <span>Baik 80%</span>
+                                </div>
+
+                                @error('kondisi_saat_itu')
+                                    <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div>
+                                <label for="catatan"
+                                    class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+                                    Catatan
+                                </label>
+                                <textarea id="catatan" name="catatan" rows="3"
+                                    class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan') }}</textarea>
+                                @error('catatan')
+                                    <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
-
-                        <input id="kondisi_saat_itu" name="kondisi_saat_itu" type="range" min="0"
-                            max="100" x-model="kondisi" :style="warnaSlider" class="block w-full">
-
-                        <div class="mt-2 flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400">
-                            <span>Rusak Parah 0%</span>
-                            <span>Rusak 35%</span>
-                            <span>Lumayan 60%</span>
-                            <span>Baik 80%</span>
-                        </div>
-
-                        @error('kondisi_saat_itu')
-                            <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
                     </div>
-
-                    <div>
-                        <label for="tanggal_transaksi_umum"
-                            class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                            Tanggal Masuk <span class="text-red-500">*</span>
-                        </label>
-                        <input id="tanggal_transaksi_umum" name="tanggal_transaksi" type="date"
-                            value="{{ old('tanggal_transaksi', now()->format('Y-m-d')) }}"
-                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
-                        @error('tanggal_transaksi')
-                            <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                    </div>
-                </div>
-
-                <div>
-                    <label for="catatan" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                        Catatan
-                    </label>
-                    <textarea id="catatan" name="catatan" rows="3"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan') }}</textarea>
-                    @error('catatan')
-                        <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
-                    @enderror
                 </div>
 
                 <div class="flex justify-end border-t border-gray-200 pt-3 dark:border-gray-700">
@@ -553,7 +569,7 @@
                             Simpan Barang Masuk
                         </span>
 
-                        <span x-show="loading" class="inline-flex items-center gap-2">
+                        <span x-cloak x-show="loading" class="inline-flex items-center gap-2">
                             <i class="bi bi-arrow-repeat animate-spin-smooth"></i>
                             <span>Menyimpan...</span>
                         </span>
@@ -574,9 +590,9 @@
                 </div>
 
                 <form method="GET" action="{{ route('transaksi.masuk') }}" class="flex flex-wrap items-center gap-2">
-                    <input type="date" name="dari" value="{{ $filterTanggal['dari'] ?? request('dari') }}"
+                    <input type="date" name="dari" value="{{ $filterTanggal['dari'] }}"
                         class="rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
-                    <input type="date" name="sampai" value="{{ $filterTanggal['sampai'] ?? request('sampai') }}"
+                    <input type="date" name="sampai" value="{{ $filterTanggal['sampai'] }}"
                         class="rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                     <button type="submit"
                         class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
@@ -642,8 +658,7 @@
 
                                     <td class="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
                                         <span
-                                            class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1
-                                            {{ $trx->barang?->tipe === 'aset'
+                                            class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 {{ $trx->barang?->tipe === 'aset'
                                                 ? 'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-900/20 dark:text-sky-400'
                                                 : 'bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-900/20 dark:text-violet-400' }}">
                                             {{ $trx->barang?->tipe === 'aset' ? 'Aset' : 'Stok' }}
@@ -656,7 +671,11 @@
                                     </td>
 
                                     <td class="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
-                                        <x-kondisi-badge :kondisi="$trx->kondisi_saat_itu" />
+                                        @if ($trx->kondisi_saat_itu !== null)
+                                            <x-kondisi-badge :kondisi="$trx->kondisi_saat_itu" :show-value="true" />
+                                        @else
+                                            <span class="text-sm text-gray-400 dark:text-gray-500">—</span>
+                                        @endif
                                     </td>
 
                                     <td
@@ -674,7 +693,7 @@
                     </table>
                 </div>
 
-                @if (method_exists($riwayatMasukData, 'links'))
+                @if ($isPaginator)
                     <div class="pt-3">
                         {{ $riwayatMasukData->links('components.pagination') }}
                     </div>

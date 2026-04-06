@@ -27,7 +27,7 @@ class PenggunaRequest extends FormRequest
             'email' => [
                 'required',
                 'string',
-                'email:rfc,dns',
+                'email:rfc',
                 'max:150',
                 Rule::unique('pengguna', 'email')->ignore($pengguna?->id),
             ],

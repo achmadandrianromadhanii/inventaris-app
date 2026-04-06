@@ -1,7 +1,7 @@
 @extends('layouts.guest')
 
 @section('title', 'Login')
-@section('meta_description', 'Login administrator Shiro — Sistem Inventaris Lab RPL SMKN 9 Malang')
+@section('meta_description', 'Login administrator website — Sistem Inventaris Lab RPL SMKN 9 Malang')
 
 @section('content')
     <div class="flex min-h-screen items-center justify-center p-4">
@@ -88,17 +88,21 @@
 
                     <button type="submit" :disabled="loading" :class="loading ? 'cursor-not-allowed opacity-70' : ''"
                         class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                        <span x-show="!loading">Masuk</span>
+                        <template x-if="!loading">
+                            <span>Masuk</span>
+                        </template>
 
-                        <span x-show="loading" class="inline-flex items-center gap-2">
-                            <i class="bi bi-arrow-repeat animate-spin-smooth"></i>
-                            <span>Masuk...</span>
-                        </span>
+                        <template x-if="loading">
+                            <span class="inline-flex items-center gap-2">
+                                <i class="bi bi-arrow-repeat animate-spin-smooth"></i>
+                                <span>Masuk...</span>
+                            </span>
+                        </template>
                     </button>
                 </form>
 
                 <p class="text-center text-[10px] text-gray-400 dark:text-gray-500">
-                    © 2025 Shiro · SMKN 9 Malang
+                    © 2025 Website · SMKN 9 Malang
                 </p>
             </div>
         </div>

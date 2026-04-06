@@ -58,7 +58,7 @@ class BarangMasukRequest extends FormRequest
 
     protected function rulesUntukTransaksiMasuk(): array
     {
-        $modeBarang = $this->input('mode_barang', 'baru');
+        $modeBarang = (string) $this->input('mode_barang', 'baru');
 
         $rules = [
             'mode_barang' => ['required', Rule::in(['baru', 'existing'])],
@@ -99,13 +99,13 @@ class BarangMasukRequest extends FormRequest
         $lokasiId = $this->input('lokasi_id');
 
         $this->merge([
-            'nama' => is_string($this->nama) ? trim($this->nama) : $this->nama,
-            'merek_manual' => is_string($this->merek_manual) ? trim($this->merek_manual) : $this->merek_manual,
-            'lokasi_manual' => is_string($this->lokasi_manual) ? trim($this->lokasi_manual) : $this->lokasi_manual,
-            'spesifikasi' => is_string($this->spesifikasi) ? trim($this->spesifikasi) : $this->spesifikasi,
-            'catatan' => is_string($this->catatan) ? trim($this->catatan) : $this->catatan,
-            'sumber_tujuan' => is_string($this->sumber_tujuan) ? trim($this->sumber_tujuan) : $this->sumber_tujuan,
-            'mode_barang' => is_string($this->mode_barang) ? trim($this->mode_barang) : $this->mode_barang,
+            'nama' => $this->sanitizeNullableString('nama'),
+            'merek_manual' => $this->sanitizeNullableString('merek_manual'),
+            'lokasi_manual' => $this->sanitizeNullableString('lokasi_manual'),
+            'spesifikasi' => $this->sanitizeNullableString('spesifikasi'),
+            'catatan' => $this->sanitizeNullableString('catatan'),
+            'sumber_tujuan' => $this->sanitizeNullableString('sumber_tujuan'),
+            'mode_barang' => $this->sanitizeModeBarang(),
 
             'merek_id' => ($merekId === 'lainnya' || $merekId === '') ? null : $merekId,
             'lokasi_id' => ($lokasiId === 'lainnya' || $lokasiId === '') ? null : $lokasiId,
@@ -161,5 +161,19 @@ class BarangMasukRequest extends FormRequest
             'tanggal_transaksi.required' => 'Tanggal transaksi wajib diisi.',
             'tanggal_transaksi.date' => 'Tanggal transaksi tidak valid.',
         ];
+    }
+
+    protected function sanitizeNullableString(string $key): mixed
+    {
+        $value = $this->input($key);
+
+        return is_string($value) ? trim($value) : $value;
+    }
+
+    protected function sanitizeModeBarang(): mixed
+    {
+        $value = $this->input('mode_barang');
+
+        return is_string($value) ? strtolower(trim($value)) : $value;
     }
 }

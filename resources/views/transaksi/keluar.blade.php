@@ -4,6 +4,15 @@
 @section('meta_description', 'Catat barang keluar inventaris Shiro.')
 
 @section('content')
+    @php
+        $riwayatData = $riwayat ?? collect();
+        $filterTanggal = $filterTanggal ?? [
+            'dari' => now()->subDays(30)->format('Y-m-d'),
+            'sampai' => now()->format('Y-m-d'),
+        ];
+        $isPaginator = method_exists($riwayatData, 'links');
+    @endphp
+
     <div class="space-y-3">
         <div>
             <h1 class="text-base font-semibold text-gray-800 dark:text-gray-100">
@@ -25,12 +34,14 @@
                 loadingUnits: false,
                 searchTimeout: null,
                 alasan: @js(old('alasan_keluar', 'pindah_lokasi')),
-                lokasiTujuanId: @js(old('lokasi_tujuan_id')),
+                lokasiTujuanMode: @js(old('_lokasi_tujuan_mode', old('lokasi_tujuan_id'))),
                 loading: false,
+                barangSearchUrl: @js(route('api.barang.search')),
+                unitBaseUrl: @js(url('/api/unit/tersedia')),
             
                 init() {
                     if (this.selected) {
-                        this.query = this.selected.nama ?? '';
+                        this.query = this.selected.nama || '';
             
                         if (this.selected.tipe === 'aset') {
                             this.loadUnits();
@@ -38,24 +49,72 @@
                     }
                 },
             
+                hasSelectedBarang() {
+                    return this.selected !== null && typeof this.selected === 'object';
+                },
+            
+                selectedNama() {
+                    return this.hasSelectedBarang() ? (this.selected.nama || '') : '';
+                },
+            
+                selectedKategori() {
+                    return this.hasSelectedBarang() ? (this.selected.kategori || '-') : '-';
+                },
+            
+                selectedMerek() {
+                    return this.hasSelectedBarang() ? (this.selected.merek || '-') : '-';
+                },
+            
+                selectedLokasi() {
+                    return this.hasSelectedBarang() ? (this.selected.lokasi || '-') : '-';
+                },
+            
+                selectedLabelKondisi() {
+                    return this.hasSelectedBarang() ? (this.selected.label_kondisi || '-') : '-';
+                },
+            
+                selectedKondisi() {
+                    return this.hasSelectedBarang() ? Number(this.selected.kondisi ?? 0) : 0;
+                },
+            
+                selectedTipeLabel() {
+                    if (!this.hasSelectedBarang()) {
+                        return 'Stok';
+                    }
+            
+                    return this.selected.tipe === 'aset' ? 'Aset' : 'Stok';
+                },
+            
+                selectedUnitTersedia() {
+                    return this.hasSelectedBarang() ? Number(this.selected.unit_tersedia ?? 0) : 0;
+                },
+            
+                selectedUnitRusak() {
+                    return this.hasSelectedBarang() ? Number(this.selected.unit_rusak ?? 0) : 0;
+                },
+            
+                selectedQtyTersedia() {
+                    return this.hasSelectedBarang() ? Number(this.selected.qty_tersedia ?? 0) : 0;
+                },
+            
                 async cariBarang() {
                     clearTimeout(this.searchTimeout);
             
                     this.searchTimeout = setTimeout(async () => {
-                        if (this.query.trim().length < 2) {
+                        const keyword = this.query.trim();
+            
+                        if (keyword.length < 2) {
                             this.results = [];
                             return;
                         }
             
                         try {
-                            const response = await fetch(
-                                `{{ route('api.barang.search') }}?q=${encodeURIComponent(this.query)}`, {
-                                    headers: {
-                                        'X-Requested-With': 'XMLHttpRequest',
-                                        'Accept': 'application/json',
-                                    },
-                                }
-                            );
+                            const response = await fetch(`${this.barangSearchUrl}?q=${encodeURIComponent(keyword)}`, {
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Accept': 'application/json',
+                                },
+                            });
             
                             if (!response.ok) {
                                 this.results = [];
@@ -64,7 +123,7 @@
             
                             const data = await response.json();
                             this.results = Array.isArray(data) ? data : [];
-                        } catch (error) {
+                        } catch (_) {
                             this.results = [];
                         }
                     }, 250);
@@ -72,7 +131,7 @@
             
                 async pilihBarang(item) {
                     this.selected = item;
-                    this.query = item.nama ?? '';
+                    this.query = item.nama || '';
                     this.results = [];
                     this.units = [];
                     this.selectedUnitIds = [];
@@ -91,7 +150,7 @@
                 },
             
                 async loadUnits() {
-                    if (!this.selected || this.selected.tipe !== 'aset') {
+                    if (!this.hasSelectedBarang() || this.selected.tipe !== 'aset') {
                         this.units = [];
                         return;
                     }
@@ -99,14 +158,12 @@
                     this.loadingUnits = true;
             
                     try {
-                        const response = await fetch(
-                            `{{ url('/api/unit/tersedia') }}/${this.selected.id}?include_rusak=1`, {
-                                headers: {
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'Accept': 'application/json',
-                                },
-                            }
-                        );
+                        const response = await fetch(`${this.unitBaseUrl}/${this.selected.id}?include_rusak=1`, {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json',
+                            },
+                        });
             
                         if (!response.ok) {
                             this.units = [];
@@ -115,7 +172,7 @@
             
                         const data = await response.json();
                         this.units = Array.isArray(data) ? data : [];
-                    } catch (error) {
+                    } catch (_) {
                         this.units = [];
                     } finally {
                         this.loadingUnits = false;
@@ -127,11 +184,11 @@
                 },
             
                 butuhUnitAset() {
-                    return this.selected && this.selected.tipe === 'aset' && this.alasan !== 'pindah_lokasi';
+                    return this.hasSelectedBarang() && this.selected.tipe === 'aset' && this.alasan !== 'pindah_lokasi';
                 },
             
                 butuhJumlahStok() {
-                    return this.selected && this.selected.tipe === 'stok' && this.alasan !== 'pindah_lokasi';
+                    return this.hasSelectedBarang() && this.selected.tipe === 'stok' && this.alasan !== 'pindah_lokasi';
                 },
             
                 butuhPeringatanKeluar() {
@@ -144,12 +201,20 @@
             
                 butuhLainnya() {
                     return this.alasan === 'lainnya';
+                },
+            
+                lokasiTujuanValue() {
+                    if (!this.butuhLokasi()) {
+                        return '';
+                    }
+            
+                    return this.lokasiTujuanMode === 'manual' ? '' : (this.lokasiTujuanMode || '');
                 }
             }" x-init="init()" @submit="loading = true">
             @csrf
 
             <div class="space-y-4">
-                <div class="relative">
+                <div class="relative" @click.outside="results = []">
                     <label for="barang_search" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Cari Barang
                     </label>
@@ -163,22 +228,20 @@
                             placeholder="Ketik minimal 2 huruf..."
                             class="block w-full rounded-md border-gray-300 py-1.5 pl-8 pr-10 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
 
-                        <button x-cloak x-show="selected" type="button"
+                        <button x-cloak x-show="hasSelectedBarang()" type="button"
                             class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                             @click="resetBarang()" title="Reset pilihan barang">
                             <i class="bi bi-x-lg text-xs"></i>
                         </button>
                     </div>
 
-                    <input type="hidden" name="barang_id" :value="selected ? selected.id : ''">
+                    <input type="hidden" name="barang_id" :value="hasSelectedBarang() ? selected.id : ''">
 
                     @error('barang_id')
                         <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
 
-                    <div x-cloak x-show="results.length > 0" x-transition:enter="transition ease-out duration-100"
-                        x-transition:enter-start="opacity-0 -translate-y-1"
-                        x-transition:enter-end="opacity-100 translate-y-0"
+                    <div x-cloak x-show="results.length > 0"
                         class="absolute z-20 mt-2 w-full rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                         <ul class="max-h-64 overflow-y-auto py-1">
                             <template x-for="item in results" :key="item.id">
@@ -200,8 +263,8 @@
                                             <p><span x-text="item.kondisi"></span>%</p>
                                             <p
                                                 x-text="item.tipe === 'aset'
-                                                    ? ((item.unit_tersedia ?? 0) + ' unit')
-                                                    : ((item.qty_tersedia ?? 0) + ' stok')">
+                                                ? ((item.unit_tersedia ?? 0) + ' unit')
+                                                : ((item.qty_tersedia ?? 0) + ' stok')">
                                             </p>
                                         </div>
                                     </button>
@@ -211,39 +274,40 @@
                     </div>
                 </div>
 
-                <div x-cloak x-show="selected" x-transition
+                <div x-cloak x-show="hasSelectedBarang()"
                     class="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/30 dark:bg-blue-900/10">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <p class="text-sm font-semibold text-blue-800 dark:text-blue-300" x-text="selected?.nama"></p>
+                            <p class="text-sm font-semibold text-blue-800 dark:text-blue-300" x-text="selectedNama()"></p>
                             <p class="mt-1 text-xs text-blue-700 dark:text-blue-400">
-                                <span x-text="selected?.kategori"></span> ·
-                                <span x-text="selected?.merek"></span> ·
-                                <span x-text="selected?.lokasi"></span>
+                                <span x-text="selectedKategori()"></span> ·
+                                <span x-text="selectedMerek()"></span> ·
+                                <span x-text="selectedLokasi()"></span>
                             </p>
                         </div>
 
                         <div class="flex flex-wrap items-center gap-2">
                             <span
                                 class="inline-flex items-center rounded-full bg-white px-2 py-1 text-[10px] font-medium text-blue-700 ring-1 ring-blue-600/20 dark:bg-gray-800 dark:text-blue-300">
-                                <span x-text="selected?.tipe === 'aset' ? 'Aset' : 'Stok'"></span>
+                                <span x-text="selectedTipeLabel()"></span>
                             </span>
 
                             <span
                                 class="inline-flex items-center rounded-full bg-white px-2 py-1 text-[10px] font-medium text-blue-700 ring-1 ring-blue-600/20 dark:bg-gray-800 dark:text-blue-300">
-                                <span x-text="selected?.label_kondisi"></span>
-                                <span class="ml-1" x-text="selected?.kondisi + '%'"></span>
+                                <span x-text="selectedLabelKondisi()"></span>
+                                <span class="ml-1" x-text="selectedKondisi() + '%'"></span>
                             </span>
                         </div>
                     </div>
 
                     <div class="mt-2 text-xs text-blue-700 dark:text-blue-400">
-                        <span x-cloak x-show="selected?.tipe === 'aset'">
-                            Unit tersedia: <strong x-text="selected?.unit_tersedia ?? 0"></strong> ·
-                            Unit rusak: <strong x-text="selected?.unit_rusak ?? 0"></strong>
+                        <span x-cloak x-show="hasSelectedBarang() && selected.tipe === 'aset'">
+                            Unit tersedia: <strong x-text="selectedUnitTersedia()"></strong> ·
+                            Unit rusak: <strong x-text="selectedUnitRusak()"></strong>
                         </span>
-                        <span x-cloak x-show="selected?.tipe === 'stok'">
-                            Stok tersedia: <strong x-text="selected?.qty_tersedia ?? 0"></strong>
+
+                        <span x-cloak x-show="hasSelectedBarang() && selected.tipe === 'stok'">
+                            Stok tersedia: <strong x-text="selectedQtyTersedia()"></strong>
                         </span>
                     </div>
                 </div>
@@ -260,7 +324,7 @@
                                 'border-blue-600 bg-blue-600 text-white' :
                                 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'"
                             class="rounded-md border px-3 py-2 text-xs">
-                            📍 Pindah Lokasi
+                            Pindah Lokasi
                         </button>
 
                         <button type="button" @click="alasan = 'dibuang'"
@@ -269,7 +333,7 @@
                                 'border-blue-600 bg-blue-600 text-white' :
                                 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'"
                             class="rounded-md border px-3 py-2 text-xs">
-                            🗑️ Dibuang
+                            Dibuang
                         </button>
 
                         <button type="button" @click="alasan = 'hibah'"
@@ -278,7 +342,7 @@
                                 'border-blue-600 bg-blue-600 text-white' :
                                 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'"
                             class="rounded-md border px-3 py-2 text-xs">
-                            🤝 Hibah
+                            Hibah
                         </button>
 
                         <button type="button" @click="alasan = 'lainnya'"
@@ -287,7 +351,7 @@
                                 'border-blue-600 bg-blue-600 text-white' :
                                 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'"
                             class="rounded-md border px-3 py-2 text-xs">
-                            📝 Lainnya
+                            Lainnya
                         </button>
                     </div>
 
@@ -298,49 +362,55 @@
                     @enderror
                 </div>
 
-                <div x-cloak x-show="butuhPeringatanKeluar()" x-transition
+                <div x-cloak x-show="butuhPeringatanKeluar()"
                     class="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-400">
                     Barang akan diproses keluar dari inventaris aktif setelah tindakan ini.
                 </div>
 
-                <div x-cloak x-show="butuhLokasi()" x-transition class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div x-cloak x-show="butuhLokasi()" class="grid grid-cols-1 gap-3 lg:grid-cols-2">
                     <div>
-                        <label for="lokasi_tujuan_id"
+                        <label for="lokasi_tujuan_selector"
                             class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                             Lokasi Tujuan
                         </label>
-                        <select id="lokasi_tujuan_id" name="lokasi_tujuan_id" x-model="lokasiTujuanId"
-                            :disabled="!butuhLokasi()"
+
+                        <select id="lokasi_tujuan_selector" x-model="lokasiTujuanMode" :disabled="!butuhLokasi()"
+                            name="_lokasi_tujuan_mode"
                             class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                             <option value="">Pilih lokasi</option>
                             @foreach ($lokasi as $item)
-                                <option value="{{ $item->id }}" @selected((string) old('lokasi_tujuan_id') === (string) $item->id)>
+                                <option value="{{ $item->id }}" @selected((string) old('_lokasi_tujuan_mode', old('lokasi_tujuan_id')) === (string) $item->id)>
                                     {{ $item->nama }}
                                 </option>
                             @endforeach
-                            <option value="manual" @selected(old('lokasi_tujuan_id') === 'manual')>Lainnya</option>
+                            <option value="manual" @selected(old('_lokasi_tujuan_mode', old('lokasi_tujuan_id')) === 'manual')>Lainnya</option>
                         </select>
+
+                        <input type="hidden" name="lokasi_tujuan_id" :value="lokasiTujuanValue()">
+
                         @error('lokasi_tujuan_id')
                             <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    <div x-cloak x-show="lokasiTujuanId === 'manual'" x-transition>
+                    <div x-cloak x-show="lokasiTujuanMode === 'manual'">
                         <label for="lokasi_tujuan_manual"
                             class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                             Lokasi Tujuan Manual
                         </label>
+
                         <input id="lokasi_tujuan_manual" name="lokasi_tujuan_manual" type="text"
                             value="{{ old('lokasi_tujuan_manual') }}"
-                            :disabled="!butuhLokasi() || lokasiTujuanId !== 'manual'"
+                            :disabled="!butuhLokasi() || lokasiTujuanMode !== 'manual'"
                             class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+
                         @error('lokasi_tujuan_manual')
                             <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
 
-                <div x-cloak x-show="butuhTujuanHibah()" x-transition>
+                <div x-cloak x-show="butuhTujuanHibah()">
                     <label for="sumber_tujuan" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Tujuan Penerima
                     </label>
@@ -348,12 +418,13 @@
                     <input id="sumber_tujuan" name="sumber_tujuan" type="text" value="{{ old('sumber_tujuan') }}"
                         placeholder="Contoh: Sekolah Mitra / Donasi / Instansi" :disabled="!butuhTujuanHibah()"
                         class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+
                     @error('sumber_tujuan')
                         <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
                 </div>
 
-                <div x-cloak x-show="butuhUnitAset()" x-transition>
+                <div x-cloak x-show="butuhUnitAset()">
                     <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Pilih Unit Aset
                     </label>
@@ -394,26 +465,30 @@
                     @enderror
                 </div>
 
-                <div x-cloak x-show="butuhJumlahStok()" x-transition>
+                <div x-cloak x-show="butuhJumlahStok()">
                     <label for="jumlah" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Jumlah
                     </label>
+
                     <input id="jumlah" name="jumlah" type="number" min="1" value="{{ old('jumlah', 1) }}"
                         :disabled="!butuhJumlahStok()"
                         class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+
                     <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                         Maksimal sesuai stok tersedia.
                     </p>
+
                     @error('jumlah')
                         <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
                 </div>
 
-                <div x-cloak x-show="butuhLainnya()" x-transition class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div x-cloak x-show="butuhLainnya()" class="grid grid-cols-1 gap-3 lg:grid-cols-2">
                     <div>
                         <label for="status_akhir" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                             Status Akhir Barang
                         </label>
+
                         <select id="status_akhir" name="status_akhir" :disabled="!butuhLainnya()"
                             class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                             <option value="">Pilih status akhir</option>
@@ -421,6 +496,7 @@
                             <option value="rusak" @selected(old('status_akhir') === 'rusak')>Rusak</option>
                             <option value="keluar" @selected(old('status_akhir') === 'keluar')>Keluar</option>
                         </select>
+
                         @error('status_akhir')
                             <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
@@ -430,20 +506,24 @@
                         <label for="catatan" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                             Keterangan
                         </label>
+
                         <textarea id="catatan" name="catatan" rows="3" :disabled="!butuhLainnya()"
                             class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan') }}</textarea>
+
                         @error('catatan')
                             <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
                     </div>
                 </div>
 
-                <div x-cloak x-show="!butuhLainnya()" x-transition>
+                <div x-cloak x-show="!butuhLainnya()">
                     <label for="catatan_umum" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Catatan
                     </label>
+
                     <textarea id="catatan_umum" name="catatan" rows="3" :disabled="butuhLainnya()"
                         class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan') }}</textarea>
+
                     @error('catatan')
                         <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
@@ -454,9 +534,11 @@
                         class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Tanggal Keluar <span class="text-red-500">*</span>
                     </label>
+
                     <input id="tanggal_transaksi" name="tanggal_transaksi" type="date"
                         value="{{ old('tanggal_transaksi', now()->format('Y-m-d')) }}"
                         class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+
                     @error('tanggal_transaksi')
                         <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
@@ -470,7 +552,7 @@
                             <span>Catat Barang Keluar</span>
                         </span>
 
-                        <span x-show="loading" class="inline-flex items-center gap-2">
+                        <span x-cloak x-show="loading" class="inline-flex items-center gap-2">
                             <i class="bi bi-arrow-repeat animate-spin-smooth"></i>
                             <span>Menyimpan...</span>
                         </span>
@@ -502,7 +584,7 @@
                 </form>
             </div>
 
-            @if ($riwayat->count() > 0)
+            @if ($riwayatData->count() > 0)
                 <div class="overflow-x-auto">
                     <table class="min-w-full border-separate border-spacing-0">
                         <thead>
@@ -534,13 +616,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($riwayat as $trx)
-                                @php
-                                    $tujuan =
-                                        $trx->lokasiTujuan?->nama ??
-                                        ($trx->lokasi_tujuan_manual ?? ($trx->sumber_tujuan ?? '—'));
-                                @endphp
-
+                            @foreach ($riwayatData as $trx)
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
@@ -560,8 +636,8 @@
                                     </td>
 
                                     <td
-                                        class="border-b border-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                        {{ str_replace('_', ' ', ucfirst($trx->alasan_keluar ?? '-')) }}
+                                        class="border-b border-gray-100 px-3 py-2 text-sm capitalize text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        {{ str_replace('_', ' ', $trx->alasan_keluar ?? '-') }}
                                     </td>
 
                                     <td
@@ -575,7 +651,7 @@
 
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                        {{ $tujuan }}
+                                        {{ $trx->lokasiTujuan?->nama ?? ($trx->lokasi_tujuan_manual ?? ($trx->sumber_tujuan ?? '—')) }}
                                     </td>
 
                                     <td
@@ -588,9 +664,11 @@
                     </table>
                 </div>
 
-                <div class="pt-3">
-                    {{ $riwayat->links('components.pagination') }}
-                </div>
+                @if ($isPaginator)
+                    <div class="pt-3">
+                        {{ $riwayatData->links('components.pagination') }}
+                    </div>
+                @endif
             @else
                 <x-empty-state icon="bi-arrow-up-circle" title="Belum ada riwayat barang keluar"
                     message="Riwayat transaksi barang keluar akan muncul di sini." />

@@ -32,9 +32,12 @@ class KategoriRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $nama = is_string($this->nama) ? trim($this->nama) : $this->nama;
+        $deskripsi = is_string($this->deskripsi) ? trim($this->deskripsi) : $this->deskripsi;
+
         $this->merge([
-            'nama' => is_string($this->nama) ? trim($this->nama) : $this->nama,
-            'deskripsi' => is_string($this->deskripsi) ? trim($this->deskripsi) : $this->deskripsi,
+            'nama' => $nama,
+            'deskripsi' => $deskripsi === '' ? null : $deskripsi,
         ]);
     }
 
@@ -42,6 +45,7 @@ class KategoriRequest extends FormRequest
     {
         return [
             'nama.required' => 'Nama kategori wajib diisi.',
+            'nama.string' => 'Nama kategori harus berupa teks.',
             'nama.max' => 'Nama kategori maksimal 100 karakter.',
             'nama.unique' => 'Nama kategori sudah digunakan.',
             'deskripsi.string' => 'Deskripsi kategori harus berupa teks.',

@@ -41,11 +41,20 @@ class BarangKeluarRequest extends FormRequest
     {
         $lokasiTujuanId = $this->input('lokasi_tujuan_id');
 
+        $unitBarangIds = collect($this->input('unit_barang_ids', []))
+            ->map(fn($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
         $this->merge([
             'lokasi_tujuan_id' => ($lokasiTujuanId === 'manual' || $lokasiTujuanId === '') ? null : $lokasiTujuanId,
             'lokasi_tujuan_manual' => is_string($this->lokasi_tujuan_manual) ? trim($this->lokasi_tujuan_manual) : $this->lokasi_tujuan_manual,
             'sumber_tujuan' => is_string($this->sumber_tujuan) ? trim($this->sumber_tujuan) : $this->sumber_tujuan,
+            'status_akhir' => is_string($this->status_akhir) ? trim($this->status_akhir) : $this->status_akhir,
             'catatan' => is_string($this->catatan) ? trim($this->catatan) : $this->catatan,
+            'unit_barang_ids' => $unitBarangIds,
         ]);
     }
 

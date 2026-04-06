@@ -6,55 +6,30 @@ use App\Models\Barang;
 use App\Models\Peminjaman;
 use App\Models\Transaksi;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class LaporanController extends Controller
 {
     public function index(Request $request): View
     {
         $filters = $this->resolveFilters($request);
+        $report = $this->buildReportData($filters);
 
-        $inventaris = $this->getInventarisData();
-        $transaksi = $this->getTransaksiData($filters['dari'], $filters['sampai']);
-        $peminjaman = $this->getPeminjamanData($filters['dari'], $filters['sampai']);
-
-        return view('laporan.index', [
-            'filters' => $filters,
-            'inventaris' => $inventaris,
-            'inventarisSummary' => $this->getInventarisSummary($inventaris),
-            'transaksi' => $transaksi,
-            'transaksiSummary' => $this->getTransaksiSummary($transaksi),
-            'peminjaman' => $peminjaman,
-            'peminjamanSummary' => $this->getPeminjamanSummary($peminjaman),
-        ]);
+        return view('laporan.index', $report);
     }
 
-    public function exportPdf(Request $request)
+    public function exportPdf(Request $request): Response
     {
         $filters = $this->resolveFilters($request);
-
-        $inventaris = $this->getInventarisData();
-        $transaksi = $this->getTransaksiData($filters['dari'], $filters['sampai']);
-        $peminjaman = $this->getPeminjamanData($filters['dari'], $filters['sampai']);
-
-        $logoBase64 = null;
-        $logoPath = public_path('logo-sekolah.png');
-
-        if (file_exists($logoPath)) {
-            $mime = mime_content_type($logoPath) ?: 'image/png';
-            $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoPath));
-        }
+        $report = $this->buildReportData($filters);
 
         $pdf = Pdf::loadView('laporan.pdf', [
-            'filters' => $filters,
-            'inventaris' => $inventaris,
-            'inventarisSummary' => $this->getInventarisSummary($inventaris),
-            'transaksi' => $transaksi,
-            'transaksiSummary' => $this->getTransaksiSummary($transaksi),
-            'peminjaman' => $peminjaman,
-            'peminjamanSummary' => $this->getPeminjamanSummary($peminjaman),
-            'logoBase64' => $logoBase64,
+            ...$report,
+            'logoBase64' => $this->getLogoBase64(),
             'tanggalCetak' => now(),
         ])->setPaper('a4', 'portrait');
 
@@ -63,15 +38,62 @@ class LaporanController extends Controller
         return $pdf->download($filename);
     }
 
-    protected function resolveFilters(Request $request): array
+    protected function buildReportData(array $filters): array
     {
+        $inventaris = $this->getInventarisData();
+        $transaksi = $this->getTransaksiData($filters['dari'], $filters['sampai']);
+        $peminjaman = $this->getPeminjamanData($filters['dari'], $filters['sampai']);
+
         return [
-            'dari' => (string) $request->query('dari', now()->startOfMonth()->format('Y-m-d')),
-            'sampai' => (string) $request->query('sampai', now()->format('Y-m-d')),
+            'filters' => $filters,
+            'inventaris' => $inventaris,
+            'inventarisSummary' => $this->getInventarisSummary($inventaris),
+            'transaksi' => $transaksi,
+            'transaksiSummary' => $this->getTransaksiSummary($transaksi),
+            'peminjaman' => $peminjaman,
+            'peminjamanSummary' => $this->getPeminjamanSummary($peminjaman),
         ];
     }
 
-    protected function getInventarisData()
+    protected function resolveFilters(Request $request): array
+    {
+        $defaultDari = now()->startOfMonth();
+        $defaultSampai = now();
+
+        $dari = $this->normalizeDate(
+            value: $request->query('dari'),
+            fallback: $defaultDari
+        );
+
+        $sampai = $this->normalizeDate(
+            value: $request->query('sampai'),
+            fallback: $defaultSampai
+        );
+
+        if ($dari->gt($sampai)) {
+            [$dari, $sampai] = [$sampai, $dari];
+        }
+
+        return [
+            'dari' => $dari->format('Y-m-d'),
+            'sampai' => $sampai->format('Y-m-d'),
+        ];
+    }
+
+    protected function normalizeDate(mixed $value, Carbon $fallback): Carbon
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return $fallback->copy();
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', trim($value))->startOfDay();
+        } catch (\Throwable) {
+            return $fallback->copy();
+        }
+    }
+
+    protected function getInventarisData(): Collection
     {
         return Barang::query()
             ->with([
@@ -91,7 +113,7 @@ class LaporanController extends Controller
             ->get();
     }
 
-    protected function getTransaksiData(string $dari, string $sampai)
+    protected function getTransaksiData(string $dari, string $sampai): Collection
     {
         return Transaksi::query()
             ->with([
@@ -107,7 +129,7 @@ class LaporanController extends Controller
             ->get();
     }
 
-    protected function getPeminjamanData(string $dari, string $sampai)
+    protected function getPeminjamanData(string $dari, string $sampai): Collection
     {
         return Peminjaman::query()
             ->with([
@@ -122,7 +144,7 @@ class LaporanController extends Controller
             ->get();
     }
 
-    protected function getInventarisSummary($inventaris): array
+    protected function getInventarisSummary(Collection $inventaris): array
     {
         return [
             'total' => $inventaris->count(),
@@ -132,7 +154,7 @@ class LaporanController extends Controller
         ];
     }
 
-    protected function getTransaksiSummary($transaksi): array
+    protected function getTransaksiSummary(Collection $transaksi): array
     {
         return [
             'masuk' => $transaksi->where('jenis', 'masuk')->count(),
@@ -140,11 +162,30 @@ class LaporanController extends Controller
         ];
     }
 
-    protected function getPeminjamanSummary($peminjaman): array
+    protected function getPeminjamanSummary(Collection $peminjaman): array
     {
         return [
             'aktif' => $peminjaman->where('status', 'aktif')->count(),
             'selesai' => $peminjaman->where('status', 'selesai')->count(),
         ];
+    }
+
+    protected function getLogoBase64(): ?string
+    {
+        $logoPath = public_path('logo-sekolah.png');
+
+        if (!is_file($logoPath) || !is_readable($logoPath)) {
+            return null;
+        }
+
+        $content = file_get_contents($logoPath);
+
+        if ($content === false) {
+            return null;
+        }
+
+        $mime = mime_content_type($logoPath) ?: 'image/png';
+
+        return 'data:' . $mime . ';base64,' . base64_encode($content);
     }
 }

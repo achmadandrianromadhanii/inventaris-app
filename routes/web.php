@@ -9,13 +9,8 @@ use App\Http\Controllers\PeminjamanSiswaController;
 use App\Http\Controllers\PenggunaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TransaksiController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-
-/*
-|--------------------------------------------------------------------------
-| Public Routes
-|--------------------------------------------------------------------------
-*/
 
 Route::middleware('throttle:20,1')->group(function () {
     Route::get('/pinjam', [PeminjamanSiswaController::class, 'index'])->name('siswa.pinjam');
@@ -26,14 +21,10 @@ Route::middleware('throttle:20,1')->group(function () {
 });
 
 Route::get('/', function () {
-    return redirect()->route('dashboard');
+    return Auth::check()
+        ? redirect()->route('dashboard')
+        : redirect()->route('login');
 });
-
-/*
-|--------------------------------------------------------------------------
-| Authenticated Routes
-|--------------------------------------------------------------------------
-*/
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

@@ -14,9 +14,17 @@ class KembalikanSiswaRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'detail_id' => $this->filled('detail_id') ? (int) $this->detail_id : $this->detail_id,
-            'kondisi_kembali' => $this->filled('kondisi_kembali') ? (int) $this->kondisi_kembali : $this->kondisi_kembali,
-            'catatan_kembali' => is_string($this->catatan_kembali) ? trim($this->catatan_kembali) : $this->catatan_kembali,
+            'detail_id' => $this->filled('detail_id')
+                ? (int) $this->input('detail_id')
+                : $this->input('detail_id'),
+
+            'kondisi_kembali' => $this->filled('kondisi_kembali')
+                ? (int) $this->input('kondisi_kembali')
+                : $this->input('kondisi_kembali'),
+
+            'catatan_kembali' => is_string($this->input('catatan_kembali'))
+                ? trim($this->input('catatan_kembali'))
+                : $this->input('catatan_kembali'),
         ]);
     }
 

@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class BarangController extends Controller
@@ -20,11 +21,15 @@ class BarangController extends Controller
     public function index(Request $request): View
     {
         $filters = [
-            'q' => trim((string) $request->string('q')),
-            'kategori_id' => $request->input('kategori_id'),
-            'tipe' => $request->input('tipe'),
-            'status' => $request->input('status'),
-            'kondisi' => $request->input('kondisi'),
+            'q' => trim((string) $request->input('q', '')),
+            'kategori_id' => $request->filled('kategori_id') ? (int) $request->input('kategori_id') : null,
+            'tipe' => in_array($request->input('tipe'), ['aset', 'stok'], true) ? $request->input('tipe') : null,
+            'status' => in_array($request->input('status'), ['tersedia', 'dipinjam', 'rusak', 'keluar'], true)
+                ? $request->input('status')
+                : null,
+            'kondisi' => in_array($request->input('kondisi'), ['baik', 'lumayan', 'rusak', 'rusak_parah'], true)
+                ? $request->input('kondisi')
+                : null,
         ];
 
         $query = Barang::query()
@@ -59,11 +64,11 @@ class BarangController extends Controller
             $query->where('kategori_id', $filters['kategori_id']);
         }
 
-        if (in_array($filters['tipe'], ['aset', 'stok'], true)) {
+        if ($filters['tipe']) {
             $query->where('tipe', $filters['tipe']);
         }
 
-        if (in_array($filters['status'], ['tersedia', 'dipinjam', 'rusak', 'keluar'], true)) {
+        if ($filters['status']) {
             $status = $filters['status'];
 
             $query->where(function (Builder $q) use ($status) {
@@ -77,15 +82,16 @@ class BarangController extends Controller
                         'tersedia' => $stok->where('qty_tersedia', '>', 0),
                         'dipinjam' => $stok->where('qty_dipinjam', '>', 0),
                         'rusak' => $stok->where('qty_rusak', '>', 0),
-                        'keluar' => $stok->where(fn(Builder $sub) => $sub
-                            ->where('qty_keluar', '>', 0)
-                            ->orWhere('aktif', false)),
+                        'keluar' => $stok->where(function (Builder $sub) {
+                            $sub->where('qty_keluar', '>', 0)
+                                ->orWhere('aktif', false);
+                        }),
                     };
                 });
             });
         }
 
-        if (in_array($filters['kondisi'], ['baik', 'lumayan', 'rusak', 'rusak_parah'], true)) {
+        if ($filters['kondisi']) {
             $query->where(function (Builder $q) use ($filters) {
                 $q->where(function (Builder $aset) use ($filters) {
                     $aset->where('tipe', 'aset')
@@ -180,12 +186,17 @@ class BarangController extends Controller
 
     public function show(Barang $barang): View
     {
-        $barang->load([
+        $relations = [
             'kategori:id,nama',
             'merek:id,nama',
             'lokasi:id,nama',
-            'unitBarang' => fn($q) => $q->orderBy('nomor_unit'),
-        ]);
+        ];
+
+        if ($barang->tipe === 'aset') {
+            $relations['unitBarang'] = fn($q) => $q->orderBy('nomor_unit');
+        }
+
+        $barang->load($relations);
 
         $barang->loadCount([
             'unitBarang',
@@ -255,6 +266,10 @@ class BarangController extends Controller
         }
 
         DB::transaction(function () use ($barang, $data) {
+            $barangTerkini = Barang::query()
+                ->lockForUpdate()
+                ->findOrFail($barang->id);
+
             $payload = [
                 'nama' => $data['nama'],
                 'kategori_id' => $data['kategori_id'],
@@ -267,21 +282,21 @@ class BarangController extends Controller
                 'catatan' => $data['catatan'] ?? null,
             ];
 
-            if ($barang->tipe === 'stok') {
+            if ($barangTerkini->tipe === 'stok') {
                 $qtyTotalBaru = isset($data['qty_total'])
                     ? (int) $data['qty_total']
-                    : (int) $barang->qty_total;
+                    : (int) $barangTerkini->qty_total;
 
-                $qtyDipinjam = (int) $barang->qty_dipinjam;
-                $qtyRusak = (int) $barang->qty_rusak;
-                $qtyKeluar = (int) $barang->qty_keluar;
+                $qtyDipinjam = (int) $barangTerkini->qty_dipinjam;
+                $qtyRusak = (int) $barangTerkini->qty_rusak;
+                $qtyKeluar = (int) $barangTerkini->qty_keluar;
 
                 $payload['qty_total'] = $qtyTotalBaru;
                 $payload['qty_tersedia'] = max(0, $qtyTotalBaru - ($qtyDipinjam + $qtyRusak + $qtyKeluar));
                 $payload['kondisi_stok'] = (int) $data['kondisi_awal'];
             }
 
-            $barang->update($payload);
+            $barangTerkini->update($payload);
         });
 
         return redirect()
@@ -355,10 +370,10 @@ class BarangController extends Controller
         $status = $kondisi <= 34 ? 'rusak' : $validated['status'];
 
         $unit->update([
-            'serial_number' => $validated['serial_number'] ?? null,
+            'serial_number' => isset($validated['serial_number']) ? trim((string) $validated['serial_number']) : null,
             'kondisi' => $kondisi,
             'status' => $status,
-            'catatan' => $validated['catatan'] ?? null,
+            'catatan' => isset($validated['catatan']) ? trim((string) $validated['catatan']) : null,
         ]);
 
         return back()->with(
@@ -462,7 +477,7 @@ class BarangController extends Controller
             ->filter()
             ->values();
 
-        $prefix = strtoupper(substr($barang->kategori->nama, 0, 3));
+        $prefix = $this->buatPrefixNomorUnit($barang->kategori->nama);
         $statusAwal = $kondisiAwal <= 34 ? 'rusak' : 'tersedia';
 
         for ($i = 1; $i <= $jumlahUnit; $i++) {
@@ -474,6 +489,14 @@ class BarangController extends Controller
                 'catatan' => null,
             ]);
         }
+    }
+
+    protected function buatPrefixNomorUnit(string $namaKategori): string
+    {
+        $clean = preg_replace('/[^A-Za-z0-9]/', '', Str::upper($namaKategori)) ?: 'UNT';
+        $prefix = Str::substr($clean, 0, 3);
+
+        return str_pad($prefix, 3, 'X');
     }
 
     protected function labelKondisi(int $kondisi): string

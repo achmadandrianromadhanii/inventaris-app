@@ -4,7 +4,6 @@
     $user = auth()->user();
 
     $namaPengguna = $user->nama ?? 'Administrator';
-    $emailPengguna = $user->email ?? 'admin@smkn9malang.sch.id';
 
     $inisial = collect(preg_split('/\s+/', trim($namaPengguna)))
         ->filter()
@@ -23,20 +22,20 @@
                 [
                     'label' => 'Dashboard',
                     'icon' => 'bi-grid-1x2-fill',
-                    'href' => url('/dashboard'),
+                    'href' => route('dashboard'),
                     'match' => ['dashboard'],
                 ],
                 [
                     'label' => 'Kelola Barang',
                     'icon' => 'bi-box-seam',
-                    'href' => url('/barang'),
-                    'match' => ['barang', 'barang/*'],
+                    'href' => route('barang.index'),
+                    'match' => ['barang.*'],
                 ],
                 [
                     'label' => 'Kategori',
                     'icon' => 'bi-tags',
-                    'href' => url('/kategori'),
-                    'match' => ['kategori', 'kategori/*'],
+                    'href' => route('kategori.index'),
+                    'match' => ['kategori.*'],
                 ],
             ],
         ],
@@ -46,20 +45,20 @@
                 [
                     'label' => 'Barang Masuk',
                     'icon' => 'bi-arrow-down-circle',
-                    'href' => url('/transaksi/masuk'),
-                    'match' => ['transaksi/masuk', 'transaksi/masuk/*'],
+                    'href' => route('transaksi.masuk'),
+                    'match' => ['transaksi.masuk'],
                 ],
                 [
                     'label' => 'Barang Keluar',
                     'icon' => 'bi-arrow-up-circle',
-                    'href' => url('/transaksi/keluar'),
-                    'match' => ['transaksi/keluar', 'transaksi/keluar/*'],
+                    'href' => route('transaksi.keluar'),
+                    'match' => ['transaksi.keluar'],
                 ],
                 [
                     'label' => 'Peminjaman',
                     'icon' => 'bi-people',
-                    'href' => url('/peminjaman'),
-                    'match' => ['peminjaman', 'peminjaman/*'],
+                    'href' => route('peminjaman.index'),
+                    'match' => ['peminjaman.*'],
                 ],
             ],
         ],
@@ -69,14 +68,14 @@
                 [
                     'label' => 'Laporan',
                     'icon' => 'bi-file-earmark-text',
-                    'href' => url('/laporan'),
-                    'match' => ['laporan', 'laporan/*'],
+                    'href' => route('laporan.index'),
+                    'match' => ['laporan.*'],
                 ],
                 [
                     'label' => 'Pengguna',
                     'icon' => 'bi-person-gear',
-                    'href' => url('/pengguna'),
-                    'match' => ['pengguna', 'pengguna/*'],
+                    'href' => route('pengguna.index'),
+                    'match' => ['pengguna.*'],
                 ],
             ],
         ],
@@ -86,8 +85,8 @@
                 [
                     'label' => 'Halaman Siswa',
                     'icon' => 'bi-box-arrow-up-right',
-                    'href' => url('/pinjam'),
-                    'match' => ['pinjam', 'pinjam/*'],
+                    'href' => route('siswa.pinjam'),
+                    'match' => ['siswa.*'],
                     'blank' => true,
                 ],
             ],
@@ -95,16 +94,16 @@
     ];
 @endphp
 
-<aside class="{{ $wrapperClass }}">
-    <div class="flex flex-col items-center border-b border-gray-700/70 px-4 py-5">
-        <img src="{{ asset('images/logo-sekolah.png') }}" alt="Logo SMKN 9 Malang" class="h-14 w-14 object-contain" loading="eager"
-            decoding="async">
+<aside class="{{ $wrapperClass }}" aria-label="Sidebar navigasi">
+    <div class="flex flex-col items-center border-b border-gray-700/70 px-4 py-4">
+        <img src="{{ asset('images/logo-sekolah.png') }}" alt="Logo SMKN 9 Malang" class="h-14 w-14 object-contain"
+            decoding="async" draggable="false">
 
-        <p class="mt-2 text-center text-[15px] font-bold text-white">
+        <p class="mt-2 text-center text-sm font-bold text-white">
             SMKN 9 Malang
         </p>
 
-        <p class="text-center text-[11px] text-gray-400">
+        <p class="text-center text-[10px] text-gray-400">
             Inventaris Lab RPL
         </p>
     </div>
@@ -119,18 +118,15 @@
 
             @foreach ($section['items'] as $item)
                 @php
-                    $isActive = collect($item['match'])->contains(fn($pattern) => request()->is($pattern));
+                    $isActive = request()->routeIs(...$item['match']);
                 @endphp
 
                 <a href="{{ $item['href'] }}"
                     @if (!empty($item['blank'])) target="_blank" rel="noopener noreferrer" @endif
-                    @if ($mobile && empty($item['blank'])) @click="sidebarOpen = false" @endif
+                    @if ($mobile && empty($item['blank'])) @click="closeSidebar()" @endif
                     @if ($isActive) aria-current="page" @endif
-                    class="flex items-center gap-2.5 rounded-md border-l-2 px-3 py-2.5 text-[15px] transition
-                        {{ $isActive
-                            ? 'border-blue-500 bg-blue-600/20 text-blue-400'
-                            : 'border-transparent text-gray-400 hover:bg-gray-800 hover:text-white' }}">
-                    <i class="bi {{ $item['icon'] }} text-base"></i>
+                    class="flex items-center gap-2.5 rounded-md border-l-2 px-3 py-2 text-sm transition-colors duration-150 ease-out {{ $isActive ? 'border-blue-500 bg-blue-600/20 text-blue-400' : 'border-transparent text-gray-400 hover:bg-gray-800 hover:text-white' }}">
+                    <i class="bi {{ $item['icon'] }} text-sm" aria-hidden="true"></i>
                     <span class="truncate">{{ $item['label'] }}</span>
                 </a>
             @endforeach
@@ -158,9 +154,9 @@
             @csrf
 
             <button type="submit"
-                class="flex w-full items-center gap-2 rounded-md px-2.5 py-2.5 text-left text-sm text-red-400 hover:bg-red-900/20"
+                class="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-red-400 transition-colors duration-150 ease-out hover:bg-red-900/20"
                 title="Keluar dari aplikasi">
-                <i class="bi bi-box-arrow-right text-sm"></i>
+                <i class="bi bi-box-arrow-right text-sm" aria-hidden="true"></i>
                 <span>Keluar</span>
             </button>
         </form>

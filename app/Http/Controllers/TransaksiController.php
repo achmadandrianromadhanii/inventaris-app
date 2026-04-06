@@ -20,8 +20,7 @@ class TransaksiController extends Controller
 {
     public function masuk(Request $request): View
     {
-        $dari = (string) $request->query('dari', now()->subDays(30)->format('Y-m-d'));
-        $sampai = (string) $request->query('sampai', now()->format('Y-m-d'));
+        $filterTanggal = $this->resolveFilterTanggal($request);
 
         $riwayat = Transaksi::query()
             ->with([
@@ -29,43 +28,20 @@ class TransaksiController extends Controller
                 'pengguna:id,nama',
             ])
             ->where('jenis', 'masuk')
-            ->whereDate('tanggal_transaksi', '>=', $dari)
-            ->whereDate('tanggal_transaksi', '<=', $sampai)
+            ->whereDate('tanggal_transaksi', '>=', $filterTanggal['dari'])
+            ->whereDate('tanggal_transaksi', '<=', $filterTanggal['sampai'])
             ->latest('tanggal_transaksi')
             ->latest('id')
             ->paginate(10)
             ->withQueryString();
-
-        $barangTerpilih = null;
-
-        if (old('barang_id')) {
-            $barang = Barang::query()
-                ->with([
-                    'kategori:id,nama',
-                    'merek:id,nama',
-                    'lokasi:id,nama',
-                ])
-                ->withCount([
-                    'unitBarang as unit_tersedia_count' => fn($sub) => $sub->where('status', 'tersedia'),
-                ])
-                ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
-                ->find(old('barang_id'));
-
-            if ($barang) {
-                $barangTerpilih = $this->formatBarangAutocomplete($barang);
-            }
-        }
 
         return view('transaksi.masuk', [
             'kategori' => Kategori::query()->orderBy('nama')->get(['id', 'nama']),
             'merek' => Merek::query()->orderBy('nama')->get(['id', 'nama']),
             'lokasi' => Lokasi::query()->orderBy('nama')->get(['id', 'nama']),
             'riwayat' => $riwayat,
-            'filterTanggal' => [
-                'dari' => $dari,
-                'sampai' => $sampai,
-            ],
-            'barangTerpilih' => $barangTerpilih,
+            'filterTanggal' => $filterTanggal,
+            'barangTerpilih' => $this->getBarangTerpilihMasuk(),
         ]);
     }
 
@@ -111,8 +87,7 @@ class TransaksiController extends Controller
 
     public function keluar(Request $request): View
     {
-        $dari = (string) $request->query('dari', now()->subDays(30)->format('Y-m-d'));
-        $sampai = (string) $request->query('sampai', now()->format('Y-m-d'));
+        $filterTanggal = $this->resolveFilterTanggal($request);
 
         $riwayat = Transaksi::query()
             ->with([
@@ -122,42 +97,18 @@ class TransaksiController extends Controller
                 'lokasiTujuan:id,nama',
             ])
             ->where('jenis', 'keluar')
-            ->whereDate('tanggal_transaksi', '>=', $dari)
-            ->whereDate('tanggal_transaksi', '<=', $sampai)
+            ->whereDate('tanggal_transaksi', '>=', $filterTanggal['dari'])
+            ->whereDate('tanggal_transaksi', '<=', $filterTanggal['sampai'])
             ->latest('tanggal_transaksi')
             ->latest('id')
             ->paginate(10)
             ->withQueryString();
 
-        $barangTerpilih = null;
-
-        if (old('barang_id')) {
-            $barang = Barang::query()
-                ->with([
-                    'kategori:id,nama',
-                    'merek:id,nama',
-                    'lokasi:id,nama',
-                ])
-                ->withCount([
-                    'unitBarang as unit_tersedia_count' => fn($sub) => $sub->where('status', 'tersedia'),
-                    'unitBarang as unit_rusak_count' => fn($sub) => $sub->where('status', 'rusak'),
-                ])
-                ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
-                ->find(old('barang_id'));
-
-            if ($barang) {
-                $barangTerpilih = $this->formatBarangAutocompleteKeluar($barang);
-            }
-        }
-
         return view('transaksi.keluar', [
             'lokasi' => Lokasi::query()->orderBy('nama')->get(['id', 'nama']),
             'riwayat' => $riwayat,
-            'filterTanggal' => [
-                'dari' => $dari,
-                'sampai' => $sampai,
-            ],
-            'barangTerpilih' => $barangTerpilih,
+            'filterTanggal' => $filterTanggal,
+            'barangTerpilih' => $this->getBarangTerpilihKeluar(),
         ]);
     }
 
@@ -249,18 +200,24 @@ class TransaksiController extends Controller
 
     protected function prosesKeluarPindahLokasi(Barang $barang, array $data, int $penggunaId): void
     {
+        $lokasiTujuanId = $data['lokasi_tujuan_id'] ?? null;
+        $lokasiTujuanManual = !empty($lokasiTujuanId) ? null : ($data['lokasi_tujuan_manual'] ?? null);
+
         $barang->update([
-            'lokasi_id' => $data['lokasi_tujuan_id'] ?? null,
-            'lokasi_manual' => !empty($data['lokasi_tujuan_id']) ? null : ($data['lokasi_tujuan_manual'] ?? null),
+            'lokasi_id' => $lokasiTujuanId,
+            'lokasi_manual' => $lokasiTujuanManual,
         ]);
 
-        $jumlah = $barang->tipe === 'aset'
-            ? max(1, $barang->unitBarang()->where('status', '!=', 'keluar')->count())
-            : max(1, (int) $barang->qty_total);
+        if ($barang->tipe === 'aset') {
+            $unitAktifQuery = $barang->unitBarang()->where('status', '!=', 'keluar');
 
-        $kondisi = $barang->tipe === 'aset'
-            ? (int) round((float) $barang->unitBarang()->avg('kondisi'))
-            : (int) $barang->kondisi_stok;
+            $jumlah = max(1, (clone $unitAktifQuery)->count());
+            $avgKondisi = (clone $unitAktifQuery)->avg('kondisi');
+            $kondisi = (int) round((float) ($avgKondisi ?? 0));
+        } else {
+            $jumlah = max(1, (int) $barang->qty_total);
+            $kondisi = (int) $barang->kondisi_stok;
+        }
 
         Transaksi::create([
             'jenis' => 'keluar',
@@ -268,8 +225,8 @@ class TransaksiController extends Controller
             'unit_barang_id' => null,
             'jumlah' => $jumlah,
             'alasan_keluar' => 'pindah_lokasi',
-            'lokasi_tujuan_id' => $data['lokasi_tujuan_id'] ?? null,
-            'lokasi_tujuan_manual' => !empty($data['lokasi_tujuan_id']) ? null : ($data['lokasi_tujuan_manual'] ?? null),
+            'lokasi_tujuan_id' => $lokasiTujuanId,
+            'lokasi_tujuan_manual' => $lokasiTujuanManual,
             'sumber_tujuan' => null,
             'tanggal_transaksi' => $data['tanggal_transaksi'],
             'kondisi_saat_itu' => $kondisi,
@@ -467,5 +424,60 @@ class TransaksiController extends Controller
             $kondisi >= 35 => 'Rusak',
             default => 'Rusak Parah',
         };
+    }
+
+    protected function resolveFilterTanggal(Request $request): array
+    {
+        return [
+            'dari' => (string) $request->query('dari', now()->subDays(30)->format('Y-m-d')),
+            'sampai' => (string) $request->query('sampai', now()->format('Y-m-d')),
+        ];
+    }
+
+    protected function getBarangTerpilihMasuk(): ?array
+    {
+        $barangId = old('barang_id');
+
+        if (!$barangId) {
+            return null;
+        }
+
+        $barang = Barang::query()
+            ->with([
+                'kategori:id,nama',
+                'merek:id,nama',
+                'lokasi:id,nama',
+            ])
+            ->withCount([
+                'unitBarang as unit_tersedia_count' => fn($sub) => $sub->where('status', 'tersedia'),
+            ])
+            ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
+            ->find($barangId);
+
+        return $barang ? $this->formatBarangAutocomplete($barang) : null;
+    }
+
+    protected function getBarangTerpilihKeluar(): ?array
+    {
+        $barangId = old('barang_id');
+
+        if (!$barangId) {
+            return null;
+        }
+
+        $barang = Barang::query()
+            ->with([
+                'kategori:id,nama',
+                'merek:id,nama',
+                'lokasi:id,nama',
+            ])
+            ->withCount([
+                'unitBarang as unit_tersedia_count' => fn($sub) => $sub->where('status', 'tersedia'),
+                'unitBarang as unit_rusak_count' => fn($sub) => $sub->where('status', 'rusak'),
+            ])
+            ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
+            ->find($barangId);
+
+        return $barang ? $this->formatBarangAutocompleteKeluar($barang) : null;
     }
 }

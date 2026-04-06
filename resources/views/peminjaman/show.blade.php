@@ -4,6 +4,19 @@
 @section('meta_description', 'Detail data peminjaman inventaris Shiro.')
 
 @section('content')
+    @php
+        $aksiKembalikan = request('aksi') === 'kembalikan';
+        $jumlahItemAktif = $peminjaman->detailPeminjaman->where('status_item', 'dipinjam')->count();
+
+        $tanggalPinjamLabel = $peminjaman->tanggal_pinjam
+            ? \Illuminate\Support\Carbon::parse($peminjaman->tanggal_pinjam)->format('d M Y')
+            : '—';
+
+        $waktuPinjamLabel = $peminjaman->waktu_pinjam
+            ? \Illuminate\Support\Carbon::parse($peminjaman->waktu_pinjam)->format('H:i')
+            : '—';
+    @endphp
+
     <div class="space-y-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -58,14 +71,14 @@
                 <div>
                     <p class="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Tanggal Pinjam</p>
                     <p class="mt-1 text-sm font-medium text-gray-800 dark:text-gray-100">
-                        {{ $peminjaman->tanggal_pinjam ? \Illuminate\Support\Carbon::parse($peminjaman->tanggal_pinjam)->format('d M Y') : '—' }}
+                        {{ $tanggalPinjamLabel }}
                     </p>
                 </div>
 
                 <div>
                     <p class="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Waktu Pinjam</p>
                     <p class="mt-1 text-sm font-medium text-gray-800 dark:text-gray-100">
-                        {{ $peminjaman->waktu_pinjam ? \Illuminate\Support\Carbon::parse($peminjaman->waktu_pinjam)->format('H:i') : '—' }}
+                        {{ $waktuPinjamLabel }}
                     </p>
                 </div>
 
@@ -82,6 +95,13 @@
                         {{ $peminjaman->pengguna?->nama ?? 'Form Siswa Publik' }}
                     </p>
                 </div>
+
+                <div>
+                    <p class="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Item Aktif</p>
+                    <p class="mt-1 text-sm font-medium text-gray-800 dark:text-gray-100">
+                        {{ $jumlahItemAktif }} item
+                    </p>
+                </div>
             </div>
 
             @if ($peminjaman->catatan)
@@ -94,12 +114,28 @@
             @endif
         </section>
 
-        <section class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <div class="mb-3 flex items-center justify-between">
+        <section id="area-pengembalian"
+            class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
                     Daftar Item
                 </h2>
+
+                @if ($jumlahItemAktif > 0)
+                    <span
+                        class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-600/20 dark:bg-emerald-900/20 dark:text-emerald-400">
+                        {{ $jumlahItemAktif }} item belum kembali
+                    </span>
+                @endif
             </div>
+
+            @if ($aksiKembalikan && $jumlahItemAktif > 0)
+                <div
+                    class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-900/10 dark:text-emerald-400">
+                    Pilih tombol <strong>Kembalikan</strong> pada item yang masih berstatus dipinjam untuk memproses
+                    pengembalian dari admin.
+                </div>
+            @endif
 
             <div class="overflow-x-auto">
                 <table class="min-w-full border-separate border-spacing-0">
@@ -135,6 +171,7 @@
                             </th>
                         </tr>
                     </thead>
+
                     <tbody>
                         @foreach ($peminjaman->detailPeminjaman as $detail)
                             @php
@@ -148,11 +185,19 @@
                                         ? $kondisiAwal - $kondisiKembali
                                         : 0;
 
-                                $highlight =
+                                $highlightKondisi =
                                     $selisihKondisi >= 10 || (!is_null($kondisiKembali) && $kondisiKembali <= 34);
+                                $highlightPengembalian = $aksiKembalikan && $detail->status_item === 'dipinjam';
+
+                                $rowClass = $highlightPengembalian
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/10'
+                                    : ($highlightKondisi
+                                        ? 'bg-amber-50 dark:bg-amber-900/10'
+                                        : '');
 
                                 $modalShouldOpen =
                                     old('detail_id') && (string) old('detail_id') === (string) $detail->id;
+
                                 $initialKondisi = $modalShouldOpen
                                     ? (int) old('kondisi_kembali', $kondisiAwal ?? 100)
                                     : $kondisiAwal ?? 100;
@@ -160,10 +205,12 @@
                                 $waktuKembaliLabel = $detail->waktu_kembali
                                     ? \Illuminate\Support\Carbon::parse($detail->waktu_kembali)->format('d M Y H:i')
                                     : '—';
+
+                                $sliderId = 'kondisi-kembali-' . $detail->id;
+                                $catatanId = 'catatan-kembali-' . $detail->id;
                             @endphp
 
-                            <tr
-                                class="{{ $highlight ? 'bg-amber-50 dark:bg-amber-900/10' : '' }} hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                            <tr class="{{ $rowClass }} hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                 <td
                                     class="border-b border-gray-100 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100">
                                     {{ $detail->barang?->nama ?? '-' }}
@@ -228,9 +275,9 @@
                                             }
                                         }">
                                             <button type="button"
-                                                class="inline-flex items-center gap-2 rounded-md bg-teal-600 px-3 py-1.5 text-xs text-white hover:bg-teal-700"
+                                                class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700"
                                                 @click="open = true">
-                                                <i class="bi bi-arrow-return-left"></i>
+                                                <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
                                                 <span>Kembalikan</span>
                                             </button>
 
@@ -254,7 +301,7 @@
 
                                                     <div>
                                                         <div class="mb-1 flex items-center justify-between gap-3">
-                                                            <label
+                                                            <label for="{{ $sliderId }}"
                                                                 class="block text-xs font-medium text-gray-600 dark:text-gray-300">
                                                                 Kondisi Saat Kembali
                                                             </label>
@@ -265,9 +312,9 @@
                                                             </span>
                                                         </div>
 
-                                                        <input name="kondisi_kembali" type="range" min="0"
-                                                            max="100" x-model="kondisi" :style="warnaSlider"
-                                                            class="block w-full">
+                                                        <input id="{{ $sliderId }}" name="kondisi_kembali"
+                                                            type="range" min="0" max="100" x-model="kondisi"
+                                                            :style="warnaSlider" class="block w-full">
 
                                                         <div
                                                             class="mt-2 flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400">
@@ -292,11 +339,12 @@
                                                     </div>
 
                                                     <div>
-                                                        <label
+                                                        <label for="{{ $catatanId }}"
                                                             class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                                                             Catatan Kembali
                                                         </label>
-                                                        <textarea name="catatan_kembali" rows="3"
+
+                                                        <textarea id="{{ $catatanId }}" name="catatan_kembali" rows="3"
                                                             class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ $modalShouldOpen ? old('catatan_kembali') : '' }}</textarea>
 
                                                         @if ($modalShouldOpen)
@@ -317,7 +365,7 @@
 
                                                         <button type="submit" :disabled="loading"
                                                             :class="loading ? 'opacity-70 cursor-not-allowed' : ''"
-                                                            class="inline-flex items-center gap-2 rounded-md bg-teal-600 px-3 py-1.5 text-xs text-white hover:bg-teal-700">
+                                                            class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700">
                                                             <span x-show="!loading">Simpan Pengembalian</span>
                                                             <span x-show="loading" class="inline-flex items-center gap-2">
                                                                 <i class="bi bi-arrow-repeat animate-spin-smooth"></i>

@@ -18,7 +18,6 @@ class DetailPeminjaman extends Model
         'unit_barang_id',
         'jumlah',
         'status_item',
-        'kondisi_awal',
         'waktu_kembali',
         'kondisi_kembali',
         'catatan_kembali',
@@ -26,7 +25,6 @@ class DetailPeminjaman extends Model
 
     protected $casts = [
         'jumlah' => 'integer',
-        'kondisi_awal' => 'integer',
         'kondisi_kembali' => 'integer',
         'waktu_kembali' => 'datetime',
     ];

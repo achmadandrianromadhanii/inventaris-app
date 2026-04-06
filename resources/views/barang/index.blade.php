@@ -39,6 +39,49 @@
         $kategoriAktif = filled($filters['kategori_id'] ?? null)
             ? $kategori->firstWhere('id', (int) $filters['kategori_id'])
             : null;
+
+        $isPaginator = method_exists($barang, 'links');
+
+        $resolveBarangMeta = function ($item) {
+            $isAset = $item->tipe === 'aset';
+
+            $rataKondisi = $isAset
+                ? (int) round((float) ($item->rata_kondisi_unit ?? 0))
+                : (int) ($item->kondisi_stok ?? 100);
+
+            $statusDisplay = $isAset
+                ? (($item->unit_rusak_count ?? 0) > 0
+                    ? 'rusak'
+                    : (($item->unit_dipinjam_count ?? 0) > 0
+                        ? 'dipinjam'
+                        : (($item->unit_tersedia_count ?? 0) > 0
+                            ? 'tersedia'
+                            : 'keluar')))
+                : (($item->qty_rusak ?? 0) > 0
+                    ? 'rusak'
+                    : (($item->qty_dipinjam ?? 0) > 0
+                        ? 'dipinjam'
+                        : (($item->qty_tersedia ?? 0) > 0
+                            ? 'tersedia'
+                            : 'keluar')));
+
+            $progressColor = match (true) {
+                $rataKondisi >= 80 => 'bg-emerald-500',
+                $rataKondisi >= 60 => 'bg-blue-500',
+                $rataKondisi >= 35 => 'bg-amber-500',
+                default => 'bg-red-500',
+            };
+
+            $progressScale = max(0, min(100, $rataKondisi)) / 100;
+
+            return [
+                'is_aset' => $isAset,
+                'rata_kondisi' => $rataKondisi,
+                'status_display' => $statusDisplay,
+                'progress_color' => $progressColor,
+                'progress_scale' => $progressScale,
+            ];
+        };
     @endphp
 
     <div class="space-y-3">
@@ -59,15 +102,9 @@
             </a>
         </div>
 
-        <div
+        <form method="GET" action="{{ route('barang.index') }}" x-data="{ open: false }"
             class="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-            {{-- Search --}}
-            <form method="GET" action="{{ route('barang.index') }}" class="w-full max-w-52">
-                <input type="hidden" name="kategori_id" value="{{ $filters['kategori_id'] }}">
-                <input type="hidden" name="tipe" value="{{ $filters['tipe'] }}">
-                <input type="hidden" name="status" value="{{ $filters['status'] }}">
-                <input type="hidden" name="kondisi" value="{{ $filters['kondisi'] }}">
-
+            <div class="w-full max-w-52">
                 <label for="q" class="sr-only">Cari barang</label>
 
                 <div class="relative">
@@ -79,15 +116,12 @@
                         placeholder="Cari nama barang..."
                         class="block w-full rounded-md border-gray-300 py-1.5 pl-8 pr-2.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                 </div>
-            </form>
+            </div>
 
-            {{-- Filter --}}
-            <form method="GET" action="{{ route('barang.index') }}" x-data="{ open: false }" class="relative">
-                <input type="hidden" name="q" value="{{ $filters['q'] }}">
-
+            <div class="relative" @click.outside="open = false">
                 <button type="button"
                     class="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                    @click="open = !open" @click.outside="open = false">
+                    @click="open = !open">
                     <i class="bi bi-funnel"></i>
                     <span>Filter</span>
 
@@ -101,10 +135,7 @@
                     <i class="bi bi-chevron-down text-[10px]"></i>
                 </button>
 
-                <div x-cloak x-show="open" x-transition:enter="transition ease-out duration-100"
-                    x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-                    x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100"
-                    x-transition:leave-end="opacity-0 scale-95"
+                <div x-cloak x-show="open"
                     class="absolute left-0 z-30 mt-2 w-[290px] rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                     <div class="space-y-3">
                         <div>
@@ -207,7 +238,7 @@
                         </div>
                     </div>
                 </div>
-            </form>
+            </div>
 
             @if ($activeFilterCount > 0 || filled($filters['q']))
                 <div class="flex flex-wrap items-center gap-1.5">
@@ -247,7 +278,7 @@
                     @endif
                 </div>
             @endif
-        </div>
+        </form>
 
         @if ($barang->count() > 0)
             <div
@@ -293,34 +324,7 @@
                         <tbody>
                             @foreach ($barang as $item)
                                 @php
-                                    $isAset = $item->tipe === 'aset';
-
-                                    $rataKondisi = $isAset
-                                        ? (int) round((float) ($item->rata_kondisi_unit ?? 0))
-                                        : (int) ($item->kondisi_stok ?? 100);
-
-                                    $statusDisplay = $isAset
-                                        ? (($item->unit_rusak_count ?? 0) > 0
-                                            ? 'rusak'
-                                            : (($item->unit_dipinjam_count ?? 0) > 0
-                                                ? 'dipinjam'
-                                                : (($item->unit_tersedia_count ?? 0) > 0
-                                                    ? 'tersedia'
-                                                    : 'keluar')))
-                                        : (($item->qty_rusak ?? 0) > 0
-                                            ? 'rusak'
-                                            : (($item->qty_dipinjam ?? 0) > 0
-                                                ? 'dipinjam'
-                                                : (($item->qty_tersedia ?? 0) > 0
-                                                    ? 'tersedia'
-                                                    : 'keluar')));
-
-                                    $progressColor = match (true) {
-                                        $rataKondisi >= 80 => 'bg-emerald-500',
-                                        $rataKondisi >= 60 => 'bg-blue-500',
-                                        $rataKondisi >= 35 => 'bg-amber-500',
-                                        default => 'bg-red-500',
-                                    };
+                                    $meta = $resolveBarangMeta($item);
                                 @endphp
 
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
@@ -352,37 +356,36 @@
 
                                     <td class="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
                                         <span
-                                            class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1
-                                            {{ $isAset
+                                            class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 {{ $meta['is_aset']
                                                 ? 'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-900/20 dark:text-sky-400'
                                                 : 'bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-900/20 dark:text-violet-400' }}">
-                                            {{ $isAset ? 'Aset' : 'Stok' }}
+                                            {{ $meta['is_aset'] ? 'Aset' : 'Stok' }}
                                         </span>
                                     </td>
 
                                     <td class="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
                                         <div class="flex items-center gap-2">
                                             <span class="text-xs text-gray-600 dark:text-gray-300">
-                                                {{ $rataKondisi }}%
+                                                {{ $meta['rata_kondisi'] }}%
                                             </span>
 
                                             <div class="w-full max-w-[72px]">
                                                 <div
                                                     class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                                                    <div class="h-1.5 rounded-full {{ $progressColor }}"
-                                                        style="width: {{ $rataKondisi }}%; transition: width 0.7s ease-out;">
+                                                    <div class="h-1.5 origin-left rounded-full {{ $meta['progress_color'] }}"
+                                                        style="transform: scaleX({{ number_format($meta['progress_scale'], 2, '.', '') }});">
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <x-kondisi-badge :kondisi="$rataKondisi" />
-                                            <x-status-badge :status="$statusDisplay" />
+                                            <x-kondisi-badge :kondisi="$meta['rata_kondisi']" />
+                                            <x-status-badge :status="$meta['status_display']" />
                                         </div>
                                     </td>
 
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                                        @if ($isAset)
+                                        @if ($meta['is_aset'])
                                             <div class="space-y-0.5 text-xs">
                                                 <p>Total: {{ $item->unit_barang_count }}</p>
                                                 <p>Tersedia: {{ $item->unit_tersedia_count }}</p>
@@ -453,34 +456,7 @@
             <div class="grid gap-3 lg:hidden">
                 @foreach ($barang as $item)
                     @php
-                        $isAset = $item->tipe === 'aset';
-
-                        $rataKondisi = $isAset
-                            ? (int) round((float) ($item->rata_kondisi_unit ?? 0))
-                            : (int) ($item->kondisi_stok ?? 100);
-
-                        $statusDisplay = $isAset
-                            ? (($item->unit_rusak_count ?? 0) > 0
-                                ? 'rusak'
-                                : (($item->unit_dipinjam_count ?? 0) > 0
-                                    ? 'dipinjam'
-                                    : (($item->unit_tersedia_count ?? 0) > 0
-                                        ? 'tersedia'
-                                        : 'keluar')))
-                            : (($item->qty_rusak ?? 0) > 0
-                                ? 'rusak'
-                                : (($item->qty_dipinjam ?? 0) > 0
-                                    ? 'dipinjam'
-                                    : (($item->qty_tersedia ?? 0) > 0
-                                        ? 'tersedia'
-                                        : 'keluar')));
-
-                        $progressColor = match (true) {
-                            $rataKondisi >= 80 => 'bg-emerald-500',
-                            $rataKondisi >= 60 => 'bg-blue-500',
-                            $rataKondisi >= 35 => 'bg-amber-500',
-                            default => 'bg-red-500',
-                        };
+                        $meta = $resolveBarangMeta($item);
                     @endphp
 
                     <div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
@@ -495,32 +471,32 @@
                             </div>
 
                             <span
-                                class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1
-                                {{ $isAset
+                                class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 {{ $meta['is_aset']
                                     ? 'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-900/20 dark:text-sky-400'
                                     : 'bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-900/20 dark:text-violet-400' }}">
-                                {{ $isAset ? 'Aset' : 'Stok' }}
+                                {{ $meta['is_aset'] ? 'Aset' : 'Stok' }}
                             </span>
                         </div>
 
                         <div class="mt-3 flex items-center gap-2">
                             <span class="text-xs text-gray-600 dark:text-gray-300">
-                                {{ $rataKondisi }}%
+                                {{ $meta['rata_kondisi'] }}%
                             </span>
 
                             <div class="w-full max-w-[72px]">
                                 <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                                    <div class="h-1.5 rounded-full {{ $progressColor }}"
-                                        style="width: {{ $rataKondisi }}%; transition: width 0.7s ease-out;"></div>
+                                    <div class="h-1.5 origin-left rounded-full {{ $meta['progress_color'] }}"
+                                        style="transform: scaleX({{ number_format($meta['progress_scale'], 2, '.', '') }});">
+                                    </div>
                                 </div>
                             </div>
 
-                            <x-kondisi-badge :kondisi="$rataKondisi" />
-                            <x-status-badge :status="$statusDisplay" />
+                            <x-kondisi-badge :kondisi="$meta['rata_kondisi']" />
+                            <x-status-badge :status="$meta['status_display']" />
                         </div>
 
                         <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            @if ($isAset)
+                            @if ($meta['is_aset'])
                                 {{ $item->unit_barang_count }} unit · {{ $item->unit_tersedia_count }} tersedia ·
                                 {{ $item->unit_dipinjam_count }} dipinjam
                             @else
@@ -576,18 +552,14 @@
                 @endforeach
             </div>
 
-            <div class="pt-1">
-                {{ $barang->links('components.pagination') }}
-            </div>
+            @if ($isPaginator)
+                <div class="pt-1">
+                    {{ $barang->links('components.pagination') }}
+                </div>
+            @endif
         @else
             <x-empty-state icon="bi-box-seam" title="Belum ada barang"
-                message="Tambahkan barang pertama untuk mulai mengelola inventaris.">
-                <a href="{{ route('barang.create') }}"
-                    class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
-                    <i class="bi bi-plus-lg"></i>
-                    <span>Tambah Barang</span>
-                </a>
-            </x-empty-state>
+                message="Tambahkan barang baru untuk mulai mengelola inventaris." />
         @endif
     </div>
 @endsection

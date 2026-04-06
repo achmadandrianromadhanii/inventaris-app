@@ -55,6 +55,32 @@
                     ->all();
             }
         }
+
+        $hasilKodeItems = collect(data_get($hasilKode, 'items', []))
+            ->filter(fn($item) => is_array($item) || is_object($item))
+            ->map(function ($item) {
+                return [
+                    'detail_id' => data_get($item, 'detail_id'),
+                    'barang' => data_get($item, 'barang', '-'),
+                    'unit_qty' => data_get($item, 'unit_qty', '-'),
+                    'status_item' => data_get($item, 'status_item', 'dipinjam'),
+                    'kondisi_awal' => is_numeric(data_get($item, 'kondisi_awal'))
+                        ? (int) data_get($item, 'kondisi_awal')
+                        : null,
+                    'kondisi_kembali' => is_numeric(data_get($item, 'kondisi_kembali'))
+                        ? (int) data_get($item, 'kondisi_kembali')
+                        : null,
+                    'waktu_kembali' => data_get($item, 'waktu_kembali'),
+                    'catatan_kembali' => data_get($item, 'catatan_kembali'),
+                ];
+            })
+            ->values();
+
+        $hasilKodeLabelKelas = data_get($hasilKode, 'kelas');
+        $hasilKodeLabelJurusan = data_get($hasilKode, 'jurusan');
+        $hasilKodeNama = data_get($hasilKode, 'nama_peminjam');
+        $hasilKodeTanggal = data_get($hasilKode, 'tanggal_pinjam');
+        $hasilKodeKode = data_get($hasilKode, 'kode_pinjam');
     @endphp
 
     <div x-data="{
@@ -99,6 +125,26 @@
             }));
         },
     
+        cartJson() {
+            return JSON.stringify(
+                this.cart.map((item) => ({
+                    barang_id: Number(item.barang_id),
+                    nama: item.nama || '',
+                    tipe: item.tipe || 'aset',
+                    jumlah: Math.max(1, Number(item.jumlah || 1)),
+                    max: Math.max(1, Number(item.max || 1)),
+                    unit_tersedia: item.unit_tersedia ?? null,
+                    qty_tersedia: item.qty_tersedia ?? null,
+                    label_kondisi: item.label_kondisi || 'Baik',
+                    kondisi: Number(item.kondisi ?? 100),
+                }))
+            );
+        },
+    
+        clearSearchResults() {
+            this.results = [];
+        },
+    
         async cariBarang() {
             clearTimeout(this.searchTimeout);
     
@@ -123,7 +169,7 @@
     
                     const data = await response.json();
                     this.results = Array.isArray(data) ? data : [];
-                } catch (error) {
+                } catch (_) {
                     this.results = [];
                 }
             }, 250);
@@ -135,14 +181,9 @@
             );
     
             if (existingIndex !== -1) {
-                if (item.tipe === 'aset') {
-                    const jumlahBaru = Number(this.cart[existingIndex].jumlah || 1) + 1;
-                    this.cart[existingIndex].jumlah = Math.min(jumlahBaru, Number(this.cart[existingIndex].max || 1));
-                } else {
-                    const jumlahBaru = Number(this.cart[existingIndex].jumlah || 1) + 1;
-                    this.cart[existingIndex].jumlah = Math.min(jumlahBaru, Number(this.cart[existingIndex].max || 1));
-                }
-    
+                const currentJumlah = Number(this.cart[existingIndex].jumlah || 1);
+                const currentMax = Number(this.cart[existingIndex].max || 1);
+                this.cart[existingIndex].jumlah = Math.max(1, Math.min(currentJumlah + 1, currentMax));
                 this.search = '';
                 this.results = [];
                 return;
@@ -154,7 +195,8 @@
                 tipe: item.tipe,
                 jumlah: 1,
                 max: item.tipe === 'stok' ?
-                    Number(item.qty_tersedia || 1) : Number(item.unit_tersedia || 1),
+                    Math.max(1, Number(item.qty_tersedia || 1)) :
+                    Math.max(1, Number(item.unit_tersedia || 1)),
                 unit_tersedia: item.unit_tersedia ?? null,
                 qty_tersedia: item.qty_tersedia ?? null,
                 label_kondisi: item.label_kondisi || 'Baik',
@@ -169,10 +211,30 @@
             this.cart.splice(index, 1);
         },
     
+        clampJumlah(item) {
+            item.jumlah = Math.max(1, Math.min(Number(item.jumlah || 1), Number(item.max || 1)));
+        },
+    
         salinKode(kode) {
+            if (!kode) {
+                return;
+            }
+    
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(kode);
+                return;
             }
+    
+            const temp = document.createElement('input');
+            temp.value = kode;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+        },
+    
+        printPage() {
+            window.print();
         },
     
         warnaKondisiText(nilai) {
@@ -188,12 +250,13 @@
             if (nilai >= 35) return 'Rusak';
             return 'Rusak Parah';
         }
-    }" class="min-h-screen">
+    }" @keydown.escape.window="clearSearchResults()" class="min-h-screen">
         <header class="sticky top-0 z-20 h-12 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
             <div class="mx-auto flex h-full max-w-2xl items-center justify-between px-4">
-                <div class="flex items-center gap-2">
-                    <img src="{{ asset('images/logo-sekolah.png') }}" alt="Logo SMKN 9 Malang" class="h-6 w-6 object-contain">
-                    <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                <div class="flex min-w-0 items-center gap-2">
+                    <img src="{{ asset('images/logo-sekolah.png') }}" alt="Logo SMKN 9 Malang" class="h-6 w-6 object-contain"
+                        width="24" height="24" decoding="async" draggable="false">
+                    <p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
                         Peminjaman Lab RPL — SMKN 9 Malang
                     </p>
                 </div>
@@ -231,12 +294,12 @@
                     </button>
                 </div>
 
-                <div x-cloak x-show="tab === 'peminjaman'" x-transition class="space-y-4">
+                <div x-cloak x-show="tab === 'peminjaman'" class="space-y-4">
                     @if ($hasilSukses)
                         <div
                             class="mx-auto max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
                             <div class="text-center">
-                                <i class="bi bi-check-circle-fill animate-slide-up text-4xl text-emerald-500"></i>
+                                <i class="bi bi-check-circle-fill text-4xl text-emerald-500"></i>
 
                                 <h2 class="mt-3 text-base font-bold text-gray-800 dark:text-gray-100">
                                     Peminjaman Berhasil!
@@ -245,7 +308,7 @@
                                 <div
                                     class="mx-auto mt-4 inline-flex rounded-xl border border-blue-200 px-4 py-3 animate-pulse-ring dark:border-blue-800/40">
                                     <span class="font-mono text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                        {{ $hasilSukses['kode_pinjam'] ?? '-' }}
+                                        {{ data_get($hasilSukses, 'kode_pinjam', '-') }}
                                     </span>
                                 </div>
 
@@ -256,24 +319,25 @@
                                 <div class="mt-4 flex justify-center gap-2">
                                     <button type="button"
                                         class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700"
-                                        @click="salinKode(@js($hasilSukses['kode_pinjam'] ?? ''))">
+                                        @click="salinKode(@js(data_get($hasilSukses, 'kode_pinjam', '')))">
                                         <i class="bi bi-clipboard"></i>
                                         <span>Salin Kode</span>
                                     </button>
 
                                     <button type="button"
                                         class="inline-flex items-center gap-2 rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                                        onclick="window.print()">
+                                        @click="printPage()">
                                         <i class="bi bi-printer"></i>
                                         <span>Cetak</span>
                                     </button>
                                 </div>
 
                                 <div class="mt-4 space-y-2 text-left">
-                                    @foreach ($hasilSukses['items'] ?? [] as $item)
+                                    @foreach (data_get($hasilSukses, 'items', []) as $item)
                                         <div
                                             class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-200">
-                                            {{ $item['barang'] ?? '-' }} — {{ $item['unit_qty'] ?? '-' }}
+                                            {{ data_get($item, 'barang', '-') }} —
+                                            {{ data_get($item, 'unit_qty', '-') }}
                                         </div>
                                     @endforeach
                                 </div>
@@ -285,8 +349,8 @@
                         class="space-y-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
                         @submit="loadingAjukan = true">
                         @csrf
-
-                        <input type="hidden" name="items_json" :value="JSON.stringify(cart)">
+                        <input type="hidden" name="tab_aktif" value="peminjaman">
+                        <input type="hidden" name="items_json" :value="cartJson()">
 
                         <section class="space-y-3">
                             <div>
@@ -392,7 +456,7 @@
                                 </h2>
                             </div>
 
-                            <div class="relative">
+                            <div class="relative" @click.outside="clearSearchResults()">
                                 <label for="barang_search"
                                     class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                                     Cari Barang
@@ -410,9 +474,6 @@
                                 </div>
 
                                 <div x-cloak x-show="results.length > 0"
-                                    x-transition:enter="transition ease-out duration-100"
-                                    x-transition:enter-start="opacity-0 -translate-y-1"
-                                    x-transition:enter-end="opacity-100 translate-y-0"
                                     class="absolute z-20 mt-2 w-full rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                     <ul class="max-h-64 overflow-y-auto py-1">
                                         <template x-for="item in results" :key="item.id">
@@ -498,8 +559,7 @@
                                                         Jumlah
                                                     </label>
                                                     <input type="number" min="1" :max="item.max"
-                                                        x-model.number="item.jumlah"
-                                                        @input="item.jumlah = Math.max(1, Math.min(Number(item.jumlah || 1), Number(item.max || 1)))"
+                                                        x-model.number="item.jumlah" @input="clampJumlah(item)"
                                                         class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                                                     <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                                                         Maksimal <span x-text="item.max"></span>.
@@ -512,12 +572,16 @@
                             </div>
                         </section>
 
-                        <div>
-                            <button type="submit" :disabled="loadingAjukan || cart.length === 0"
-                                :class="loadingAjukan || cart.length === 0 ? 'opacity-70 cursor-not-allowed' : ''"
-                                class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                                <span x-show="!loadingAjukan">Ajukan Peminjaman</span>
-                                <span x-show="loadingAjukan" class="inline-flex items-center gap-2">
+                        <div class="flex justify-end border-t border-gray-200 pt-3 dark:border-gray-700">
+                            <button type="submit" :disabled="loadingAjukan"
+                                :class="loadingAjukan ? 'opacity-70 cursor-not-allowed' : ''"
+                                class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700">
+                                <span x-show="!loadingAjukan" class="inline-flex items-center gap-2">
+                                    <i class="bi bi-check-lg"></i>
+                                    <span>Ajukan Peminjaman</span>
+                                </span>
+
+                                <span x-cloak x-show="loadingAjukan" class="inline-flex items-center gap-2">
                                     <i class="bi bi-arrow-repeat animate-spin-smooth"></i>
                                     <span>Menyimpan...</span>
                                 </span>
@@ -526,78 +590,57 @@
                     </form>
                 </div>
 
-                <div x-cloak x-show="tab === 'pengembalian'" x-transition class="space-y-4">
+                <div x-cloak x-show="tab === 'pengembalian'" class="space-y-4">
                     <form method="POST" action="{{ route('siswa.cek-kode') }}"
-                        class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                        class="space-y-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
                         @csrf
                         <input type="hidden" name="tab_aktif" value="pengembalian">
 
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
-                            <div>
-                                <label for="kode_pinjam"
-                                    class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                                    Kode Peminjaman
-                                </label>
+                        <div>
+                            <label for="kode_pinjam"
+                                class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+                                Kode Peminjaman
+                            </label>
+                            <div class="flex gap-2">
                                 <input id="kode_pinjam" name="kode_pinjam" type="text"
-                                    value="{{ old('kode_pinjam') }}"
-                                    class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 font-mono text-sm uppercase dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
-                            </div>
-
-                            <div class="self-end">
+                                    value="{{ old('kode_pinjam', $hasilKodeKode) }}"
+                                    class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 font-mono text-sm uppercase dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                                    placeholder="SHR-YYYYMMDD-001">
                                 <button type="submit"
-                                    class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
+                                    class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700">
                                     <i class="bi bi-search"></i>
                                     <span>Cek Kode</span>
                                 </button>
                             </div>
+                            @error('kode_pinjam')
+                                <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
                         </div>
                     </form>
 
-                    @if (session('galat_kode'))
-                        <div
-                            class="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-400">
-                            {{ session('galat_kode') }}
-                        </div>
-                    @endif
-
-                    @if ($hasilKode)
+                    @if ($hasilKodeKode)
                         <div
                             class="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900/30 dark:bg-blue-900/10">
-                            <p class="text-sm font-semibold text-blue-800 dark:text-blue-300">
-                                {{ $hasilKode['kode_pinjam'] ?? '-' }}
-                            </p>
-                            <p class="mt-1 text-xs text-blue-700 dark:text-blue-400">
-                                {{ $hasilKode['nama_peminjam'] ?? '-' }} · {{ $hasilKode['kelas'] ?? '-' }} /
-                                {{ $hasilKode['jurusan'] ?? '-' }} · {{ $hasilKode['tanggal_pinjam'] ?? '-' }}
-                            </p>
+                            <div class="space-y-1">
+                                <p class="font-mono text-sm font-semibold text-blue-800 dark:text-blue-300">
+                                    {{ $hasilKodeKode }}
+                                </p>
+                                <p class="text-sm text-blue-700 dark:text-blue-400">
+                                    {{ $hasilKodeNama ?: '-' }} ·
+                                    {{ $hasilKodeLabelKelas ?: '-' }}/{{ $hasilKodeLabelJurusan ?: '-' }}
+                                </p>
+                                <p class="text-xs text-blue-700 dark:text-blue-400">
+                                    Tanggal pinjam: {{ $hasilKodeTanggal ?: '-' }}
+                                </p>
+                            </div>
                         </div>
 
                         <div class="space-y-3">
-                            @foreach ($hasilKode['items'] ?? [] as $item)
+                            @foreach ($hasilKodeItems as $item)
                                 @php
-                                    $detailId = $item['detail_id'] ?? null;
-                                    $statusItem = $item['status_item'] ?? 'dipinjam';
-                                    $kondisiAwal = isset($item['kondisi_awal']) ? (int) $item['kondisi_awal'] : null;
-                                    $kondisiKembali = isset($item['kondisi_kembali'])
-                                        ? (int) $item['kondisi_kembali']
-                                        : null;
-
-                                    $labelKondisiAwal = match (true) {
-                                        !is_null($kondisiAwal) && $kondisiAwal >= 80 => 'Baik',
-                                        !is_null($kondisiAwal) && $kondisiAwal >= 60 => 'Lumayan',
-                                        !is_null($kondisiAwal) && $kondisiAwal >= 35 => 'Rusak',
-                                        !is_null($kondisiAwal) => 'Rusak Parah',
-                                        default => null,
-                                    };
-
-                                    $modalShouldOpen =
-                                        old('detail_id') && (string) old('detail_id') === (string) $detailId;
-                                    $initialKondisi = $modalShouldOpen
-                                        ? (int) old('kondisi_kembali', $kondisiAwal ?? 100)
-                                        : $kondisiAwal ?? 100;
-
-                                    $waktuKembali = $item['waktu_kembali'] ?? null;
-                                    $catatanKembali = $item['catatan_kembali'] ?? null;
+                                    $detailId = $item['detail_id'];
+                                    $isDipinjam = $item['status_item'] === 'dipinjam';
+                                    $oldKondisi = old('detail_id') == $detailId ? old('kondisi_kembali', 100) : 100;
                                 @endphp
 
                                 <div
@@ -605,118 +648,40 @@
                                     <div class="flex flex-wrap items-start justify-between gap-3">
                                         <div class="min-w-0">
                                             <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                                {{ $item['barang'] ?? '-' }}
+                                                {{ $item['barang'] }}
                                             </p>
                                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                                {{ $item['unit_qty'] ?? '-' }}
+                                                {{ $item['unit_qty'] }}
                                             </p>
                                         </div>
 
-                                        <x-status-badge :status="$statusItem" />
-                                    </div>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <x-status-badge :status="$item['status_item'] === 'dipinjam' ? 'dipinjam' : 'dikembalikan'" />
 
-                                    <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                        <div>
-                                            <p
-                                                class="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                                Kondisi Awal
-                                            </p>
-                                            <div class="mt-1">
-                                                @if (!is_null($kondisiAwal))
-                                                    <span
-                                                        class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 {{ match (true) {
-                                                            $kondisiAwal >= 80
-                                                                => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-900/20 dark:text-emerald-400',
-                                                            $kondisiAwal >= 60 => 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-900/20 dark:text-blue-400',
-                                                            $kondisiAwal >= 35 => 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-900/20 dark:text-amber-400',
-                                                            default => 'bg-red-50 text-red-600 ring-red-500/20 dark:bg-red-900/20 dark:text-red-400',
-                                                        } }}">
-                                                        {{ $labelKondisiAwal }} {{ $kondisiAwal }}%
-                                                    </span>
-                                                @else
-                                                    <span class="text-sm text-gray-400 dark:text-gray-500">—</span>
-                                                @endif
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <p
-                                                class="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                                Kondisi Kembali
-                                            </p>
-                                            <div class="mt-1">
-                                                @if (!is_null($kondisiKembali))
-                                                    <x-kondisi-badge :kondisi="$kondisiKembali" :show-value="true" />
-                                                @else
-                                                    <span class="text-sm text-gray-400 dark:text-gray-500">Belum
-                                                        dikembalikan</span>
-                                                @endif
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <p
-                                                class="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                                Waktu
-                                            </p>
-                                            <p class="mt-1 text-sm text-gray-700 dark:text-gray-200">
-                                                {{ $waktuKembali ?: '—' }}
-                                            </p>
+                                            @if (!is_null($item['kondisi_awal']))
+                                                <x-kondisi-badge :kondisi="$item['kondisi_awal']" :show-value="true" />
+                                            @endif
                                         </div>
                                     </div>
 
-                                    @if ($statusItem === 'dipinjam' && $detailId)
-                                        <div x-data="{
-                                            open: @js($modalShouldOpen),
-                                            kondisi: {{ $initialKondisi }},
-                                            loading: false,
-                                        
-                                            get labelKondisi() {
-                                                if (this.kondisi >= 80) return 'Baik';
-                                                if (this.kondisi >= 60) return 'Lumayan';
-                                                if (this.kondisi >= 35) return 'Rusak';
-                                                return 'Rusak Parah';
-                                            },
-                                        
-                                            get warnaKondisiText() {
-                                                if (this.kondisi >= 80) return 'text-emerald-600 dark:text-emerald-400';
-                                                if (this.kondisi >= 60) return 'text-blue-600 dark:text-blue-400';
-                                                if (this.kondisi >= 35) return 'text-amber-600 dark:text-amber-400';
-                                                return 'text-red-600 dark:text-red-400';
-                                            },
-                                        
-                                            get warnaSlider() {
-                                                if (this.kondisi >= 80) return 'accent-color: #059669';
-                                                if (this.kondisi >= 60) return 'accent-color: #2563eb';
-                                                if (this.kondisi >= 35) return 'accent-color: #f59e0b';
-                                                return 'accent-color: #ef4444';
-                                            }
-                                        }" class="mt-3">
+                                    @if ($isDipinjam)
+                                        <div x-data="{ open: {{ old('detail_id') == $detailId ? 'true' : 'false' }}, kondisi: Number({{ (int) $oldKondisi }}), loading: false }" class="mt-3">
                                             <button type="button"
                                                 class="inline-flex items-center gap-2 rounded-md bg-teal-600 px-3 py-1.5 text-xs text-white hover:bg-teal-700"
-                                                @click="open = true">
+                                                @click="open = !open">
                                                 <i class="bi bi-arrow-return-left"></i>
-                                                <span>Kembalikan Item Ini</span>
+                                                <span x-text="open ? 'Tutup Form' : 'Kembalikan Item Ini'"></span>
                                             </button>
 
-                                            <x-modal1 name="open" title="Kembalikan Item" max-width="max-w-lg">
+                                            <div x-cloak x-show="open"
+                                                class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40">
                                                 <form method="POST" action="{{ route('siswa.kembalikan') }}"
                                                     class="space-y-3" @submit="loading = true">
                                                     @csrf
-
-                                                    <input type="hidden" name="detail_id" value="{{ $detailId }}">
-                                                    <input type="hidden" name="kode_pinjam"
-                                                        value="{{ $hasilKode['kode_pinjam'] ?? '' }}">
                                                     <input type="hidden" name="tab_aktif" value="pengembalian">
-
-                                                    <div>
-                                                        <p class="text-sm font-medium text-gray-800 dark:text-gray-100">
-                                                            {{ $item['barang'] ?? '-' }}
-                                                        </p>
-                                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                                            {{ $item['unit_qty'] ?? '-' }}
-                                                        </p>
-                                                    </div>
+                                                    <input type="hidden" name="kode_pinjam"
+                                                        value="{{ $hasilKodeKode }}">
+                                                    <input type="hidden" name="detail_id" value="{{ $detailId }}">
 
                                                     <div>
                                                         <div class="mb-1 flex items-center justify-between gap-3">
@@ -724,16 +689,15 @@
                                                                 class="block text-xs font-medium text-gray-600 dark:text-gray-300">
                                                                 Kondisi Saat Kembali
                                                             </label>
-
-                                                            <span class="text-sm font-semibold" :class="warnaKondisiText">
-                                                                <span x-text="labelKondisi"></span>
+                                                            <span class="text-sm font-semibold"
+                                                                :class="warnaKondisiText(kondisi)">
+                                                                <span x-text="labelKondisi(kondisi)"></span>
                                                                 <span x-text="kondisi + '%'"></span>
                                                             </span>
                                                         </div>
 
                                                         <input name="kondisi_kembali" type="range" min="0"
-                                                            max="100" x-model="kondisi" :style="warnaSlider"
-                                                            class="block w-full">
+                                                            max="100" x-model="kondisi" class="block w-full">
 
                                                         <div
                                                             class="mt-2 flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400">
@@ -743,66 +707,90 @@
                                                             <span>Baik 80%</span>
                                                         </div>
 
-                                                        <div x-cloak x-show="kondisi <= 34" x-transition
-                                                            class="mt-2 text-xs text-red-600 dark:text-red-400">
-                                                            Rusak Parah — unit akan otomatis dikunci.
-                                                        </div>
-
-                                                        @if ($modalShouldOpen)
+                                                        @if (old('detail_id') == $detailId)
                                                             @error('kondisi_kembali')
-                                                                <p class="mt-2 text-[11px] text-red-600 dark:text-red-400">
-                                                                    {{ $message }}
-                                                                </p>
+                                                                <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">
+                                                                    {{ $message }}</p>
                                                             @enderror
                                                         @endif
+                                                    </div>
+
+                                                    <div x-cloak x-show="kondisi <= 34"
+                                                        class="rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-400">
+                                                        Rusak Parah — unit akan otomatis dikunci.
                                                     </div>
 
                                                     <div>
-                                                        <label
+                                                        <label for="catatan_kembali_{{ $detailId }}"
                                                             class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                                                             Catatan Kerusakan
                                                         </label>
-                                                        <textarea name="catatan_kembali" rows="2"
-                                                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ $modalShouldOpen ? old('catatan_kembali') : '' }}</textarea>
-
-                                                        @if ($modalShouldOpen)
+                                                        <textarea id="catatan_kembali_{{ $detailId }}" name="catatan_kembali" rows="2"
+                                                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('detail_id') == $detailId ? old('catatan_kembali') : '' }}</textarea>
+                                                        @if (old('detail_id') == $detailId)
                                                             @error('catatan_kembali')
-                                                                <p class="mt-2 text-[11px] text-red-600 dark:text-red-400">
-                                                                    {{ $message }}
-                                                                </p>
+                                                                <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">
+                                                                    {{ $message }}</p>
                                                             @enderror
                                                         @endif
                                                     </div>
 
-                                                    <div class="flex justify-end gap-2">
-                                                        <button type="button"
-                                                            class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                                                            @click="open = false" :disabled="loading">
-                                                            Batal
-                                                        </button>
-
+                                                    <div class="flex justify-end">
                                                         <button type="submit" :disabled="loading"
                                                             :class="loading ? 'opacity-70 cursor-not-allowed' : ''"
                                                             class="inline-flex items-center gap-2 rounded-md bg-teal-600 px-3 py-1.5 text-xs text-white hover:bg-teal-700">
-                                                            <span x-show="!loading">Simpan Pengembalian</span>
-                                                            <span x-show="loading" class="inline-flex items-center gap-2">
+                                                            <span x-show="!loading"
+                                                                class="inline-flex items-center gap-2">
+                                                                <i class="bi bi-check-lg"></i>
+                                                                <span>Kembalikan Item Ini</span>
+                                                            </span>
+
+                                                            <span x-cloak x-show="loading"
+                                                                class="inline-flex items-center gap-2">
                                                                 <i class="bi bi-arrow-repeat animate-spin-smooth"></i>
                                                                 <span>Menyimpan...</span>
                                                             </span>
                                                         </button>
                                                     </div>
                                                 </form>
-                                            </x-modal1>
+                                            </div>
                                         </div>
-                                    @elseif ($statusItem !== 'dipinjam')
-                                        <div
-                                            class="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
-                                            @if ($catatanKembali)
-                                                {{ $catatanKembali }}
-                                            @else
-                                                Item sudah dikembalikan.
+                                    @else
+                                        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            @if (!is_null($item['kondisi_kembali']))
+                                                <div
+                                                    class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+                                                    <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                                                        Kondisi Kembali
+                                                    </p>
+                                                    <div class="mt-1">
+                                                        <x-kondisi-badge :kondisi="$item['kondisi_kembali']" :show-value="true" />
+                                                    </div>
+                                                </div>
                                             @endif
+
+                                            <div
+                                                class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+                                                <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                                                    Waktu Kembali
+                                                </p>
+                                                <p class="mt-1 text-sm text-gray-700 dark:text-gray-200">
+                                                    {{ $item['waktu_kembali'] ?: '-' }}
+                                                </p>
+                                            </div>
                                         </div>
+
+                                        @if ($item['catatan_kembali'])
+                                            <div
+                                                class="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900/40">
+                                                <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                                                    Catatan
+                                                </p>
+                                                <p class="mt-1 text-sm text-gray-700 dark:text-gray-200">
+                                                    {{ $item['catatan_kembali'] }}
+                                                </p>
+                                            </div>
+                                        @endif
                                     @endif
                                 </div>
                             @endforeach
