@@ -4,6 +4,21 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
+// [VERCEL OPTIMIZATION]: Vercel menggunakan sistem Read-Only (hanya bisa dibaca).
+// Kita wajib membelokkan semua folder tulisan Laravel ke /tmp (direktori sementara Vercel).
+if (isset($_ENV['VERCEL']) || getenv('VERCEL')) {
+    $_ENV['APP_SERVICES_CACHE'] = '/tmp/storage/bootstrap/cache/services.php';
+    $_ENV['APP_PACKAGES_CACHE'] = '/tmp/storage/bootstrap/cache/packages.php';
+    $_ENV['APP_CONFIG_CACHE'] = '/tmp/storage/bootstrap/cache/config.php';
+    $_ENV['APP_ROUTES_CACHE'] = '/tmp/storage/bootstrap/cache/routes-v7.php';
+    $_ENV['APP_EVENTS_CACHE'] = '/tmp/storage/bootstrap/cache/events.php';
+    $_ENV['VIEW_COMPILED_PATH'] = '/tmp/storage/framework/views';
+
+    if (! is_dir('/tmp/storage/bootstrap/cache')) {
+        mkdir('/tmp/storage/bootstrap/cache', 0755, true);
+    }
+}
+
 $app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
