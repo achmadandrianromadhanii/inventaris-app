@@ -29,11 +29,12 @@
     ],
     "env": {
         "APP_ENV": "production",
-        "APP_DEBUG": "true",
+        "APP_DEBUG": "false",
         "CACHE_STORE": "database",
         "SESSION_DRIVER": "database",
         "LOG_CHANNEL": "stderr",
         "FILESYSTEM_DISK": "local",
         "VERCEL": "1"
-    }
+    },
+    "regions": ["sin1"]
 }
