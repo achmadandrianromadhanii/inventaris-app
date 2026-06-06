@@ -19,8 +19,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
         //
     })->create();
 
-// [VERCEL OPTIMIZATION]: Vercel menggunakan sistem Read-Only (hanya bisa dibaca). 
-// Jika terdeteksi berjalan di Vercel, kita belokkan seluruh operasi penulisan file 
+// [VERCEL OPTIMIZATION]: Vercel menggunakan sistem Read-Only (hanya bisa dibaca).
+// Jika terdeteksi berjalan di Vercel, kita belokkan seluruh operasi penulisan file
 // (Cache, Session, Views) ke folder /tmp/storage agar tidak terjadi "Crash 500".
 if (isset($_ENV['VERCEL']) || getenv('VERCEL')) {
     $storagePath = $_ENV['APP_STORAGE'] ?? '/tmp/storage';
@@ -37,7 +37,7 @@ if (isset($_ENV['VERCEL']) || getenv('VERCEL')) {
     ];
 
     foreach ($directories as $dir) {
-        if (!is_dir($dir)) {
+        if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
     }
