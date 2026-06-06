@@ -12,8 +12,15 @@
     ],
     "routes": [
         {
+            "src": "/(.*\\.(css|js|png|jpg|jpeg|webp|gif|svg|ico|woff|woff2|ttf|eot|otf))$",
+            "dest": "/public/$1"
+        },
+        {
             "src": "/build/(.*)",
             "dest": "/public/build/$1"
+        },
+        {
+            "handle": "filesystem"
         },
         {
             "src": "/(.*)",

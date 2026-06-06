@@ -23,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
         // Laravel sering bingung dan mengira ia berjalan di jalur HTTP biasa,
         // sehingga membuat URL gambar/CSS menjadi HTTP dan diblokir oleh browser (Mixed Content).
         // Kode ini memaksa Laravel untuk SELALU menggunakan HTTPS.
-        if (isset($_ENV['VERCEL']) || getenv('VERCEL') || env('APP_ENV') === 'production') {
+        if (isset($_ENV['VERCEL']) || getenv('VERCEL') || config('app.env') === 'production') {
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
     }
