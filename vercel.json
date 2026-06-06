@@ -22,7 +22,7 @@
     ],
     "env": {
         "APP_ENV": "production",
-        "APP_DEBUG": "false",
+        "APP_DEBUG": "true",
         "CACHE_STORE": "database",
         "SESSION_DRIVER": "database",
         "LOG_CHANNEL": "stderr",
