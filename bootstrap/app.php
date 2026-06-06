@@ -16,7 +16,19 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\App\Http\Middleware\GzipResponse::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // [VERCEL DEBUGGING]: Paksa cetak teks error asli tanpa merender HTML View
+        // agar kita tahu pasti letak class yang bentrok (case-sensitive) di Linux.
+        if (isset($_ENV['VERCEL']) || getenv('VERCEL')) {
+            $exceptions->render(function (\Throwable $e) {
+                echo "<div style='font-family:monospace; padding: 20px; background: #ffebee; color: #b71c1c;'>";
+                echo '<h2>🔴 VERCEL FATAL CRASH REPORT</h2>';
+                echo '<b>Error Message:</b> '.$e->getMessage().'<br><br>';
+                echo '<b>File:</b> '.$e->getFile().' pada baris '.$e->getLine().'<br><br>';
+                echo '<b>Stack Trace:</b><br><pre>'.$e->getTraceAsString().'</pre>';
+                echo '</div>';
+                exit;
+            });
+        }
     })->create();
 
 // [VERCEL OPTIMIZATION]: Vercel menggunakan sistem Read-Only (hanya bisa dibaca).
