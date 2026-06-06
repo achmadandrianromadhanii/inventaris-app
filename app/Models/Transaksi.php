@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property \App\Models\Barang|null $barang
+ * @property \App\Models\UnitBarang|null $unitBarang
+ * @property \App\Models\Lokasi|null $lokasiTujuan
+ * @property \App\Models\Pengguna|null $pengguna
+ */
 class Transaksi extends Model
 {
     use HasFactory;
@@ -19,7 +25,6 @@ class Transaksi extends Model
         'jumlah',
         'alasan_keluar',
         'lokasi_tujuan_id',
-        'lokasi_tujuan_manual',
         'sumber_tujuan',
         'tanggal_transaksi',
         'kondisi_saat_itu',

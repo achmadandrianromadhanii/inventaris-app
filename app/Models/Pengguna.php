@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+// Menghapus implements MustVerifyEmail karena verifikasi email tidak digunakan di aplikasi ini
 class Pengguna extends Authenticatable
 {
     use HasFactory, Notifiable;

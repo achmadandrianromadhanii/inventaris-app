@@ -33,25 +33,36 @@ class LaporanController extends Controller
             'tanggalCetak' => now(),
         ])->setPaper('a4', 'portrait');
 
-        $filename = 'laporan-shiro-' . now()->format('Ymd-His') . '.pdf';
+        $filename = 'laporan-shiro-'.now()->format('Ymd-His').'.pdf';
 
         return $pdf->download($filename);
     }
 
     protected function buildReportData(array $filters): array
     {
-        $inventaris = $this->getInventarisData();
-        $transaksi = $this->getTransaksiData($filters['dari'], $filters['sampai']);
-        $peminjaman = $this->getPeminjamanData($filters['dari'], $filters['sampai']);
+        $tipe = $filters['tipe_laporan'];
+
+        $inventaris = collect();
+        $transaksi = collect();
+        $peminjaman = collect();
+
+        // Data fetching logic based on report type
+        if ($tipe === 'lengkap') {
+            $inventaris = $this->getInventarisData();
+            $transaksi = $this->getTransaksiData($filters['dari'], $filters['sampai']);
+            $peminjaman = $this->getPeminjamanData($filters['dari'], $filters['sampai']);
+        } elseif ($tipe === 'rusak') {
+            $inventaris = $this->getInventarisRusakData();
+        }
 
         return [
             'filters' => $filters,
             'inventaris' => $inventaris,
             'inventarisSummary' => $this->getInventarisSummary($inventaris),
             'transaksi' => $transaksi,
-            'transaksiSummary' => $this->getTransaksiSummary($transaksi),
+            'transaksiSummary' => $tipe === 'rusak' ? ['masuk' => 0, 'keluar' => 0] : $this->getTransaksiSummary($transaksi),
             'peminjaman' => $peminjaman,
-            'peminjamanSummary' => $this->getPeminjamanSummary($peminjaman),
+            'peminjamanSummary' => $tipe === 'rusak' ? ['aktif' => 0, 'selesai' => 0] : $this->getPeminjamanSummary($peminjaman),
         ];
     }
 
@@ -74,15 +85,20 @@ class LaporanController extends Controller
             [$dari, $sampai] = [$sampai, $dari];
         }
 
+        $tipeLaporan = in_array($request->query('tipe_laporan'), ['lengkap', 'rusak'], true)
+            ? $request->query('tipe_laporan')
+            : 'lengkap';
+
         return [
             'dari' => $dari->format('Y-m-d'),
             'sampai' => $sampai->format('Y-m-d'),
+            'tipe_laporan' => $tipeLaporan,
         ];
     }
 
     protected function normalizeDate(mixed $value, Carbon $fallback): Carbon
     {
-        if (!is_string($value) || trim($value) === '') {
+        if (! is_string($value) || trim($value) === '') {
             return $fallback->copy();
         }
 
@@ -103,12 +119,48 @@ class LaporanController extends Controller
             ])
             ->withCount([
                 'unitBarang',
-                'unitBarang as unit_tersedia_count' => fn($q) => $q->where('status', 'tersedia'),
-                'unitBarang as unit_dipinjam_count' => fn($q) => $q->where('status', 'dipinjam'),
-                'unitBarang as unit_rusak_count' => fn($q) => $q->where('status', 'rusak'),
-                'unitBarang as unit_keluar_count' => fn($q) => $q->where('status', 'keluar'),
+                'unitBarang as unit_tersedia_count' => fn ($q) => $q->where('status', 'tersedia'),
+                'unitBarang as unit_dipinjam_count' => fn ($q) => $q->where('status', 'dipinjam'),
+                'unitBarang as unit_rusak_count' => fn ($q) => $q->where('status', 'rusak'),
+                'unitBarang as unit_keluar_count' => fn ($q) => $q->where('status', 'keluar'),
             ])
             ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
+            ->orderBy('nama')
+            ->get();
+    }
+
+    protected function getInventarisRusakData(): Collection
+    {
+        return Barang::query()
+            ->with([
+                'kategori:id,nama',
+                'merek:id,nama',
+                'lokasi:id,nama',
+            ])
+            ->withCount([
+                'unitBarang',
+                'unitBarang as unit_tersedia_count' => fn ($q) => $q->where('status', 'tersedia'),
+                'unitBarang as unit_dipinjam_count' => fn ($q) => $q->where('status', 'dipinjam'),
+                'unitBarang as unit_rusak_count' => fn ($q) => $q->where('status', 'rusak'),
+                'unitBarang as unit_keluar_count' => fn ($q) => $q->where('status', 'keluar'),
+            ])
+            ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
+            ->where(function ($query) {
+                // Aset dengan unit rusak
+                $query->whereHas('unitBarang', function ($q) {
+                    $q->where('status', 'rusak');
+                })
+                // Atau Stok dengan qty rusak
+                    ->orWhere(function ($q) {
+                        $q->where('tipe', 'stok')
+                            ->where('qty_rusak', '>', 0);
+                    })
+                // Atau Stok dengan kondisi buruk (<= 59%)
+                    ->orWhere(function ($q) {
+                        $q->where('tipe', 'stok')
+                            ->where('kondisi_stok', '<=', 59);
+                    });
+            })
             ->orderBy('nama')
             ->get();
     }
@@ -154,11 +206,31 @@ class LaporanController extends Controller
         ];
     }
 
+    protected function getInventarisSummaryDB(): array
+    {
+        return [
+            'total' => Barang::count(),
+            'aset' => Barang::where('tipe', 'aset')->count(),
+            'stok' => Barang::where('tipe', 'stok')->count(),
+            'aktif' => Barang::where('aktif', true)->count(),
+        ];
+    }
+
     protected function getTransaksiSummary(Collection $transaksi): array
     {
         return [
             'masuk' => $transaksi->where('jenis', 'masuk')->count(),
             'keluar' => $transaksi->where('jenis', 'keluar')->count(),
+        ];
+    }
+
+    protected function getTransaksiSummaryDB(string $dari, string $sampai): array
+    {
+        $baseQuery = Transaksi::whereBetween('tanggal_transaksi', [$dari, $sampai]);
+
+        return [
+            'masuk' => (clone $baseQuery)->where('jenis', 'masuk')->count(),
+            'keluar' => (clone $baseQuery)->where('jenis', 'keluar')->count(),
         ];
     }
 
@@ -170,11 +242,21 @@ class LaporanController extends Controller
         ];
     }
 
+    protected function getPeminjamanSummaryDB(string $dari, string $sampai): array
+    {
+        $baseQuery = Peminjaman::whereBetween('tanggal_pinjam', [$dari, $sampai]);
+
+        return [
+            'aktif' => (clone $baseQuery)->where('status', 'aktif')->count(),
+            'selesai' => (clone $baseQuery)->where('status', 'selesai')->count(),
+        ];
+    }
+
     protected function getLogoBase64(): ?string
     {
-        $logoPath = public_path('logo-sekolah.png');
+        $logoPath = public_path('images/logo-sekolah.png');
 
-        if (!is_file($logoPath) || !is_readable($logoPath)) {
+        if (! is_file($logoPath) || ! is_readable($logoPath)) {
             return null;
         }
 
@@ -186,6 +268,6 @@ class LaporanController extends Controller
 
         $mime = mime_content_type($logoPath) ?: 'image/png';
 
-        return 'data:' . $mime . ';base64,' . base64_encode($content);
+        return 'data:'.$mime.';base64,'.base64_encode($content);
     }
 }

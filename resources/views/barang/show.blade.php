@@ -15,9 +15,7 @@
             ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-900/20 dark:text-emerald-400'
             : 'bg-gray-100 text-gray-600 ring-gray-400/20 dark:bg-gray-700 dark:text-gray-300';
 
-        $kondisiBarang = $isAset
-            ? (int) round((float) $barang->unitBarang->avg('kondisi'))
-            : (int) ($barang->kondisi_stok ?? 100);
+        $kondisiBarang = $barang->kondisi_efektif;
 
         $progressColor = match (true) {
             $kondisiBarang >= 80 => 'bg-emerald-500',
@@ -58,12 +56,12 @@
 
             <div class="flex items-center gap-2">
                 <a href="{{ route('barang.edit', $barang) }}"
-                    class="rounded-md bg-amber-500 px-3 py-1.5 text-xs text-white hover:bg-amber-600">
+                    class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700 shadow-md shadow-indigo-500/30">
                     Edit
                 </a>
 
                 <a href="{{ route('barang.index') }}"
-                    class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                    class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                     Kembali
                 </a>
             </div>
@@ -72,7 +70,7 @@
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
             <section class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
                 <div class="mb-3">
-                    <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400">
                         Info Umum
                     </p>
                 </div>
@@ -102,7 +100,7 @@
                     <div class="grid grid-cols-3 gap-3">
                         <dt class="text-sm text-gray-500 dark:text-gray-400">Tahun</dt>
                         <dd class="col-span-2 text-sm font-medium text-gray-800 dark:text-gray-100">
-                            {{ $barang->tahun_pengadaan ?: '-' }}
+                            {{ $barang->tahun_pengadaan ?: ($barang->created_at ? $barang->created_at->format('Y') . ' (Otomatis)' : '-') }}
                         </dd>
                     </div>
 
@@ -134,7 +132,7 @@
 
             <section class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
                 <div class="mb-3 flex items-center justify-between gap-3">
-                    <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400">
                         Kondisi & Unit
                     </p>
 
@@ -186,29 +184,29 @@
                             <thead>
                                 <tr>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         No Unit
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Serial
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Kondisi
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Status
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-right text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Aksi
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse ($barang->unitBarang as $unit)
+                                @forelse ($barang->unitBarang->take(5) as $unit)
                                     @php
                                         $unitProgressColor = match (true) {
                                             $unit->kondisi >= 80 => 'bg-emerald-500',
@@ -218,7 +216,7 @@
                                         };
                                     @endphp
 
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                    <tr class="group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
                                         <td
                                             class="border-b border-gray-100 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100">
                                             {{ $unit->nomor_unit }}
@@ -270,6 +268,14 @@
                                 @endforelse
                             </tbody>
                         </table>
+
+                        @if ($barang->unitBarang->count() > 5)
+                            <div class="border-t border-gray-100 bg-indigo-50/50 p-3 text-center dark:border-gray-700 dark:bg-indigo-900/10">
+                                <a href="{{ route('barang.unit', $barang) }}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors">
+                                    Menampilkan 5 dari {{ $barang->unitBarang->count() }} unit. Lihat {{ $barang->unitBarang->count() - 5 }} unit lainnya &rarr;
+                                </a>
+                            </div>
+                        @endif
                     </div>
                 @else
                     <div class="space-y-4">
@@ -334,18 +340,18 @@
 
                             <div class="flex items-center gap-2">
                                 <span class="text-xs text-gray-600 dark:text-gray-300">
-                                    {{ (int) $barang->kondisi_stok }}%
+                                    {{ $barang->kondisi_efektif }}%
                                 </span>
 
                                 <div class="w-full max-w-[72px]">
                                     <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                                         <div class="h-1.5 rounded-full {{ $progressColor }}"
-                                            style="width: {{ (int) $barang->kondisi_stok }}%; transition: width 0.7s ease-out;">
+                                            style="width: {{ $barang->kondisi_efektif }}%; transition: width 0.7s ease-out;">
                                         </div>
                                     </div>
                                 </div>
 
-                                <x-kondisi-badge :kondisi="$barang->kondisi_stok" />
+                                <x-kondisi-badge :kondisi="$barang->kondisi_efektif" />
                             </div>
                         </div>
                     </div>
@@ -356,7 +362,7 @@
         <section class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
             x-data="{ tab: 'transaksi' }">
             <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                <p class="text-sm font-bold text-slate-800 dark:text-gray-100">
                     Riwayat
                 </p>
 
@@ -391,23 +397,23 @@
                             <thead>
                                 <tr>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Tanggal
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Jenis
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Jumlah
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Keterangan
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Admin
                                     </th>
                                 </tr>
@@ -432,7 +438,7 @@
                                         }
                                     @endphp
 
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                    <tr class="group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
                                         <td
                                             class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
                                             {{ optional($trx->tanggal_transaksi)->format('d M Y') }}
@@ -477,30 +483,30 @@
                             <thead>
                                 <tr>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Tgl Pinjam
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Kode
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Peminjam
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Unit/Qty
                                     </th>
                                     <th scope="col"
-                                        class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                         Status
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($riwayatPeminjaman as $detail)
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                    <tr class="group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
                                         <td
                                             class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
                                             {{ optional($detail->peminjaman?->tanggal_pinjam)->format('d M Y') }}
@@ -508,7 +514,7 @@
 
                                         <td
                                             class="border-b border-gray-100 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100">
-                                            {{ $detail->peminjaman?->kode_pinjam ?? '-' }}
+                                            #{{ $detail->peminjaman?->id ?? '-' }}
                                         </td>
 
                                         <td

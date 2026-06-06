@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\PeminjamanUpdated;
 use App\Models\Barang;
 use App\Models\DetailPeminjaman;
 use App\Models\Peminjaman;
@@ -12,22 +13,6 @@ use Illuminate\Validation\ValidationException;
 
 class PeminjamanService
 {
-    public function generateKodePinjam(): string
-    {
-        $tanggal = now()->format('Ymd');
-        $urutan = Peminjaman::query()
-            ->whereDate('created_at', today())
-            ->lockForUpdate()
-            ->count() + 1;
-
-        do {
-            $kode = 'SHR-' . $tanggal . '-' . str_pad((string) $urutan, 3, '0', STR_PAD_LEFT);
-            $urutan++;
-        } while (Peminjaman::query()->where('kode_pinjam', $kode)->exists());
-
-        return $kode;
-    }
-
     public function normalizeItems(array $items): Collection
     {
         return collect($items)
@@ -37,7 +22,7 @@ class PeminjamanService
                     'jumlah' => max(1, (int) ($item['jumlah'] ?? 1)),
                 ];
             })
-            ->filter(fn(array $item) => $item['barang_id'] > 0)
+            ->filter(fn (array $item) => $item['barang_id'] > 0)
             ->groupBy('barang_id')
             ->map(function (Collection $group, int|string $barangId) {
                 return [
@@ -58,14 +43,26 @@ class PeminjamanService
             ]);
         }
 
+        // [UPDATE] Anti-Spam: Cooldown 60 detik per nama peminjam.
+        // Jika siswa dengan nama yang sama baru saja mengajukan peminjaman kurang dari 60 detik yang lalu,
+        // tolak permintaan ini agar data tidak meledak karena klik berulang/spam.
+        $namaPeminjam = trim($data['nama_peminjam']);
+        $sudahAdaBaru = Peminjaman::query()
+            ->where('nama_peminjam', $namaPeminjam)
+            ->where('created_at', '>=', now()->subSeconds(60))
+            ->exists();
+
+        if ($sudahAdaBaru) {
+            throw ValidationException::withMessages([
+                'nama_peminjam' => 'Anda baru saja mengajukan peminjaman. Silakan tunggu 1 menit sebelum mengajukan lagi.',
+            ]);
+        }
+
         $ringkasanItems = [];
-        $kodePinjam = null;
+        $peminjamanId = null;
 
-        DB::transaction(function () use ($data, $itemsNormalized, &$ringkasanItems, &$kodePinjam) {
-            $kodePinjam = $this->generateKodePinjam();
-
+        DB::transaction(function () use ($data, $itemsNormalized, &$ringkasanItems, &$peminjamanId) {
             $peminjaman = Peminjaman::query()->create([
-                'kode_pinjam' => $kodePinjam,
                 'nama_peminjam' => $data['nama_peminjam'],
                 'kelas_id' => $data['kelas_id'],
                 'jurusan_id' => $data['jurusan_id'],
@@ -83,7 +80,7 @@ class PeminjamanService
                     ->lockForUpdate()
                     ->findOrFail($item['barang_id']);
 
-                if (!$barang->aktif) {
+                if (! $barang->aktif) {
                     throw ValidationException::withMessages([
                         'items_json' => "Barang '{$barang->nama}' tidak aktif dan tidak bisa dipinjam.",
                     ]);
@@ -131,13 +128,21 @@ class PeminjamanService
 
                 $ringkasanItems[] = [
                     'barang' => $barang->nama,
-                    'unit_qty' => 'Qty ' . $jumlah,
+                    'unit_qty' => 'Qty '.$jumlah,
                 ];
             }
+
+            $peminjamanId = $peminjaman->id;
         });
 
+        PeminjamanUpdated::dispatch(
+            aksi: 'peminjaman_baru',
+            pesan: "Peminjaman baru atas nama {$data['nama_peminjam']} — ".count($ringkasanItems).' item',
+            data: ['peminjaman_id' => $peminjamanId],
+        );
+
         return [
-            'kode_pinjam' => $kodePinjam,
+            'peminjaman_id' => $peminjamanId,
             'items' => $ringkasanItems,
         ];
     }
@@ -206,6 +211,12 @@ class PeminjamanService
                 ]);
             }
         });
+
+        PeminjamanUpdated::dispatch(
+            aksi: 'pengembalian',
+            pesan: 'Item dikembalikan — kondisi '.$kondisiKembali.'%',
+            data: ['detail_id' => $detail->id],
+        );
     }
 
     protected function pinjamUnitAset(Peminjaman $peminjaman, Barang $barang, UnitBarang $unit): void

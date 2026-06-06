@@ -1,6 +1,24 @@
+@import 'bootstrap-icons/font/bootstrap-icons.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ─── Turbo Drive Progress Bar ───
+   Menyesuaikan tampilan loading bar bawaan Turbo Drive.
+   Bar ini hanya muncul jika navigasi memakan waktu > 300ms (diatur di app.js).
+   Dibuat tipis (2px) dan berwarna indigo agar sesuai design system. */
+.turbo-progress-bar {
+    height: 2px;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+}
+
+/* ─── Transisi halaman Turbo (fade smooth) ───
+   Body diberi will-change: opacity agar browser mengoptimalkan
+   rendering layer untuk transisi fade saat pindah halaman.
+   Dikombinasikan dengan event turbo:before-render & turbo:render di app.js. */
+body {
+    will-change: opacity;
+}
 
 /* ── Alpine cloak ── */
 [x-cloak] {

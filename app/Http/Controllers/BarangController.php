@@ -2,22 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\KondisiHelper;
 use App\Http\Requests\BarangMasukRequest;
 use App\Models\Barang;
 use App\Models\Kategori;
-use App\Models\Lokasi;
-use App\Models\Merek;
 use App\Models\UnitBarang;
+use App\Services\UnitBarangService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class BarangController extends Controller
 {
+    public function __construct(
+        protected UnitBarangService $unitBarangService
+    ) {}
+
     public function index(Request $request): View
     {
         $filters = [
@@ -41,22 +44,20 @@ class BarangController extends Controller
             ])
             ->withCount([
                 'unitBarang',
-                'unitBarang as unit_tersedia_count' => fn(Builder $q) => $q->where('status', 'tersedia'),
-                'unitBarang as unit_dipinjam_count' => fn(Builder $q) => $q->where('status', 'dipinjam'),
-                'unitBarang as unit_rusak_count' => fn(Builder $q) => $q->where('status', 'rusak'),
-                'unitBarang as unit_keluar_count' => fn(Builder $q) => $q->where('status', 'keluar'),
+                'unitBarang as unit_tersedia_count' => fn (Builder $q) => $q->where('status', 'tersedia'),
+                'unitBarang as unit_dipinjam_count' => fn (Builder $q) => $q->where('status', 'dipinjam'),
+                'unitBarang as unit_rusak_count' => fn (Builder $q) => $q->where('status', 'rusak'),
+                'unitBarang as unit_keluar_count' => fn (Builder $q) => $q->where('status', 'keluar'),
             ])
             ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
             ->latest('id');
 
         if ($filters['q'] !== '') {
             $query->where(function (Builder $q) use ($filters) {
-                $q->where('nama', 'like', '%' . $filters['q'] . '%')
-                    ->orWhere('merek_manual', 'like', '%' . $filters['q'] . '%')
-                    ->orWhere('lokasi_manual', 'like', '%' . $filters['q'] . '%')
-                    ->orWhereHas('kategori', fn(Builder $sub) => $sub->where('nama', 'like', '%' . $filters['q'] . '%'))
-                    ->orWhereHas('merek', fn(Builder $sub) => $sub->where('nama', 'like', '%' . $filters['q'] . '%'))
-                    ->orWhereHas('lokasi', fn(Builder $sub) => $sub->where('nama', 'like', '%' . $filters['q'] . '%'));
+                $q->where('nama', 'like', '%'.$filters['q'].'%')
+                    ->orWhereHas('kategori', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$filters['q'].'%'))
+                    ->orWhereHas('merek', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$filters['q'].'%'))
+                    ->orWhereHas('lokasi', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$filters['q'].'%'));
             });
         }
 
@@ -74,7 +75,7 @@ class BarangController extends Controller
             $query->where(function (Builder $q) use ($status) {
                 $q->where(function (Builder $aset) use ($status) {
                     $aset->where('tipe', 'aset')
-                        ->whereHas('unitBarang', fn(Builder $sub) => $sub->where('status', $status));
+                        ->whereHas('unitBarang', fn (Builder $sub) => $sub->where('status', $status));
                 })->orWhere(function (Builder $stok) use ($status) {
                     $stok->where('tipe', 'stok');
 
@@ -138,9 +139,9 @@ class BarangController extends Controller
     public function create(): View
     {
         return view('barang.tambah', [
-            'kategori' => Kategori::query()->orderBy('nama')->get(['id', 'nama']),
-            'merek' => Merek::query()->orderBy('nama')->get(['id', 'nama']),
-            'lokasi' => Lokasi::query()->orderBy('nama')->get(['id', 'nama']),
+            'kategori' => \App\Models\Kategori::getCachedDropdown(),
+            'merek' => \App\Models\Merek::getCachedDropdown(),
+            'lokasi' => \App\Models\Lokasi::getCachedDropdown(),
         ]);
     }
 
@@ -153,9 +154,7 @@ class BarangController extends Controller
                 'nama' => $data['nama'],
                 'kategori_id' => $data['kategori_id'],
                 'merek_id' => $data['merek_id'] ?? null,
-                'merek_manual' => !empty($data['merek_id']) ? null : ($data['merek_manual'] ?? null),
                 'lokasi_id' => $data['lokasi_id'] ?? null,
-                'lokasi_manual' => !empty($data['lokasi_id']) ? null : ($data['lokasi_manual'] ?? null),
                 'tipe' => $data['tipe'],
                 'spesifikasi' => $data['spesifikasi'] ?? null,
                 'tahun_pengadaan' => $data['tahun_pengadaan'] ?? null,
@@ -170,11 +169,12 @@ class BarangController extends Controller
             ]);
 
             if ($barang->tipe === 'aset') {
-                $this->buatUnitAwal(
-                    barang: $barang->load('kategori:id,nama'),
-                    jumlahUnit: (int) $data['jumlah_unit'],
+                $this->unitBarangService->buatUnit(
+                    barang: $barang,
+                    jumlah: (int) $data['jumlah_unit'],
                     kondisiAwal: (int) $data['kondisi_awal'],
-                    serialRaw: $data['serial_number_list'] ?? null
+                    serials: $data['unit_serials'] ?? null,
+                    kondisis: $data['unit_kondisis'] ?? null
                 );
             }
         });
@@ -193,17 +193,17 @@ class BarangController extends Controller
         ];
 
         if ($barang->tipe === 'aset') {
-            $relations['unitBarang'] = fn($q) => $q->orderBy('nomor_unit');
+            $relations['unitBarang'] = fn ($q) => $q->orderBy('nomor_unit');
         }
 
         $barang->load($relations);
 
         $barang->loadCount([
             'unitBarang',
-            'unitBarang as unit_tersedia_count' => fn(Builder $q) => $q->where('status', 'tersedia'),
-            'unitBarang as unit_dipinjam_count' => fn(Builder $q) => $q->where('status', 'dipinjam'),
-            'unitBarang as unit_rusak_count' => fn(Builder $q) => $q->where('status', 'rusak'),
-            'unitBarang as unit_keluar_count' => fn(Builder $q) => $q->where('status', 'keluar'),
+            'unitBarang as unit_tersedia_count' => fn (Builder $q) => $q->where('status', 'tersedia'),
+            'unitBarang as unit_dipinjam_count' => fn (Builder $q) => $q->where('status', 'dipinjam'),
+            'unitBarang as unit_rusak_count' => fn (Builder $q) => $q->where('status', 'rusak'),
+            'unitBarang as unit_keluar_count' => fn (Builder $q) => $q->where('status', 'keluar'),
         ]);
 
         $riwayatTransaksi = $barang->transaksi()
@@ -215,7 +215,7 @@ class BarangController extends Controller
 
         $riwayatPeminjaman = $barang->detailPeminjaman()
             ->with([
-                'peminjaman:id,kode_pinjam,nama_peminjam,tanggal_pinjam,status',
+                'peminjaman:id,nama_peminjam,tanggal_pinjam,status',
                 'unitBarang:id,nomor_unit',
             ])
             ->latest('id')
@@ -239,31 +239,15 @@ class BarangController extends Controller
 
         return view('barang.edit', [
             'barang' => $barang,
-            'kategori' => Kategori::query()->orderBy('nama')->get(['id', 'nama']),
-            'merek' => Merek::query()->orderBy('nama')->get(['id', 'nama']),
-            'lokasi' => Lokasi::query()->orderBy('nama')->get(['id', 'nama']),
+            'kategori' => \App\Models\Kategori::getCachedDropdown(),
+            'merek' => \App\Models\Merek::getCachedDropdown(),
+            'lokasi' => \App\Models\Lokasi::getCachedDropdown(),
         ]);
     }
 
     public function update(BarangMasukRequest $request, Barang $barang): RedirectResponse
     {
         $data = $request->validated();
-
-        if ($barang->tipe === 'stok') {
-            $qtyTotalBaru = isset($data['qty_total'])
-                ? (int) $data['qty_total']
-                : (int) $barang->qty_total;
-
-            $qtyTerpakai = (int) $barang->qty_dipinjam
-                + (int) $barang->qty_rusak
-                + (int) $barang->qty_keluar;
-
-            if ($qtyTotalBaru < $qtyTerpakai) {
-                return back()
-                    ->withInput()
-                    ->with('galat', 'Jumlah total stok tidak boleh lebih kecil dari total stok yang sudah dipinjam, rusak, atau keluar.');
-            }
-        }
 
         DB::transaction(function () use ($barang, $data) {
             $barangTerkini = Barang::query()
@@ -274,27 +258,11 @@ class BarangController extends Controller
                 'nama' => $data['nama'],
                 'kategori_id' => $data['kategori_id'],
                 'merek_id' => $data['merek_id'] ?? null,
-                'merek_manual' => !empty($data['merek_id']) ? null : ($data['merek_manual'] ?? null),
                 'lokasi_id' => $data['lokasi_id'] ?? null,
-                'lokasi_manual' => !empty($data['lokasi_id']) ? null : ($data['lokasi_manual'] ?? null),
                 'spesifikasi' => $data['spesifikasi'] ?? null,
                 'tahun_pengadaan' => $data['tahun_pengadaan'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
             ];
-
-            if ($barangTerkini->tipe === 'stok') {
-                $qtyTotalBaru = isset($data['qty_total'])
-                    ? (int) $data['qty_total']
-                    : (int) $barangTerkini->qty_total;
-
-                $qtyDipinjam = (int) $barangTerkini->qty_dipinjam;
-                $qtyRusak = (int) $barangTerkini->qty_rusak;
-                $qtyKeluar = (int) $barangTerkini->qty_keluar;
-
-                $payload['qty_total'] = $qtyTotalBaru;
-                $payload['qty_tersedia'] = max(0, $qtyTotalBaru - ($qtyDipinjam + $qtyRusak + $qtyKeluar));
-                $payload['kondisi_stok'] = (int) $data['kondisi_awal'];
-            }
 
             $barangTerkini->update($payload);
         });
@@ -348,7 +316,12 @@ class BarangController extends Controller
         ]);
     }
 
-    public function updateUnit(Request $request, Barang $barang, UnitBarang $unit): RedirectResponse
+    /**
+     * Update kondisi, status, serial number, dan catatan unit.
+     * Mengembalikan JSON jika dipanggil via AJAX (simpan massal),
+     * atau redirect biasa jika dipanggil via form submit standar.
+     */
+    public function updateUnit(Request $request, Barang $barang, UnitBarang $unit): RedirectResponse|JsonResponse
     {
         abort_if($barang->tipe !== 'aset', 404);
         abort_if($unit->barang_id !== $barang->id, 404);
@@ -367,7 +340,19 @@ class BarangController extends Controller
         ]);
 
         $kondisi = (int) $validated['kondisi'];
-        $status = $kondisi <= 34 ? 'rusak' : $validated['status'];
+
+        // Logika Status:
+        // 1. Jika kondisi <= 34, paksa jadi rusak.
+        // 2. Jika kondisi > 34 tapi status yang direquest adalah 'rusak' (artinya user merubah kondisi jadi bagus tapi lupa/terlewat merubah dropdown status),
+        //    maka paksa statusnya kembali ke 'tersedia' karena barang bagus tidak mungkin statusnya masih rusak.
+        // 3. Selain itu, gunakan status yang direquest.
+        if ($kondisi <= 34) {
+            $status = 'rusak';
+        } elseif ($validated['status'] === 'rusak') {
+            $status = 'tersedia';
+        } else {
+            $status = $validated['status'];
+        }
 
         $unit->update([
             'serial_number' => isset($validated['serial_number']) ? trim((string) $validated['serial_number']) : null,
@@ -376,12 +361,23 @@ class BarangController extends Controller
             'catatan' => isset($validated['catatan']) ? trim((string) $validated['catatan']) : null,
         ]);
 
-        return back()->with(
-            'sukses',
-            $kondisi <= 34
-                ? 'Unit berhasil diperbarui. Karena kondisi ≤34%, status otomatis menjadi rusak.'
-                : 'Unit berhasil diperbarui.'
-        );
+        $pesan = $kondisi <= 34
+            ? 'Unit berhasil diperbarui. Karena kondisi ≤34%, status otomatis menjadi rusak.'
+            : 'Unit berhasil diperbarui.';
+
+        // Jika request berasal dari AJAX (simpan massal), kembalikan JSON
+        if ($request->ajax()) {
+            return response()->json([
+                'sukses' => true,
+                'pesan' => $pesan,
+                'unit_id' => $unit->id,
+                'status' => $status,
+                'kondisi' => $kondisi,
+            ]);
+        }
+
+        // Jika request biasa (form submit), redirect seperti biasa
+        return back()->with('sukses', $pesan);
     }
 
     public function search(Request $request): JsonResponse
@@ -399,23 +395,25 @@ class BarangController extends Controller
                 'lokasi:id,nama',
             ])
             ->withCount([
-                'unitBarang as unit_tersedia_count' => fn(Builder $sub) => $sub->where('status', 'tersedia'),
+                'unitBarang as unit_tersedia_count' => fn (Builder $sub) => $sub->where('status', 'tersedia'),
             ])
             ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
             ->where('aktif', true)
             ->where(function (Builder $query) use ($q) {
-                $query->where('nama', 'like', '%' . $q . '%')
-                    ->orWhereHas('kategori', fn(Builder $sub) => $sub->where('nama', 'like', '%' . $q . '%'))
-                    ->orWhereHas('merek', fn(Builder $sub) => $sub->where('nama', 'like', '%' . $q . '%'))
-                    ->orWhere('merek_manual', 'like', '%' . $q . '%');
+                $query->where('nama', 'like', '%'.$q.'%')
+                    ->orWhereHas('kategori', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$q.'%'))
+                    ->orWhereHas('merek', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$q.'%'));
             })
             ->orderBy('nama')
             ->limit(10)
             ->get()
-            ->map(function (Barang $barang) {
+            ->map(function (Barang $barang): array {
                 $kondisi = $barang->tipe === 'aset'
                     ? (int) round((float) ($barang->rata_kondisi_unit ?? 0))
                     : (int) ($barang->kondisi_stok ?? 100);
+
+                /** @var int|null $unitTersediaCount */
+                $unitTersediaCount = $barang->getAttribute('unit_tersedia_count');
 
                 return [
                     'id' => $barang->id,
@@ -425,9 +423,9 @@ class BarangController extends Controller
                     'merek' => $barang->label_merek,
                     'lokasi' => $barang->label_lokasi,
                     'kondisi' => $kondisi,
-                    'label_kondisi' => $this->labelKondisi($kondisi),
+                    'label_kondisi' => KondisiHelper::label($kondisi),
                     'qty_tersedia' => $barang->tipe === 'stok' ? (int) $barang->qty_tersedia : null,
-                    'unit_tersedia' => $barang->tipe === 'aset' ? (int) $barang->unit_tersedia_count : null,
+                    'unit_tersedia' => $barang->tipe === 'aset' ? (int) $unitTersediaCount : null,
                 ];
             })
             ->values();
@@ -445,7 +443,9 @@ class BarangController extends Controller
             ? ['tersedia', 'rusak']
             : ['tersedia'];
 
-        $unit = $barang->unitBarang()
+        /** @var \Illuminate\Database\Eloquent\Collection<int, UnitBarang> $units */
+        $units = UnitBarang::query()
+            ->where('barang_id', $barang->id)
             ->whereIn('status', $statusYangDiambil)
             ->orderByDesc('kondisi')
             ->orderBy('nomor_unit')
@@ -456,56 +456,18 @@ class BarangController extends Controller
                 'serial_number',
                 'kondisi',
                 'status',
-            ])
-            ->map(fn(UnitBarang $item) => [
-                'id' => $item->id,
-                'nomor_unit' => $item->nomor_unit,
-                'serial_number' => $item->serial_number,
-                'kondisi' => (int) $item->kondisi,
-                'label_kondisi' => $item->label_kondisi,
-                'status' => $item->status,
-            ])
+            ]);
+
+        $unit = $units->map(fn (UnitBarang $item): array => [
+            'id' => $item->id,
+            'nomor_unit' => $item->nomor_unit,
+            'serial_number' => $item->serial_number,
+            'kondisi' => (int) $item->kondisi,
+            'label_kondisi' => $item->label_kondisi,
+            'status' => $item->status,
+        ])
             ->values();
 
         return response()->json($unit);
-    }
-
-    protected function buatUnitAwal(Barang $barang, int $jumlahUnit, int $kondisiAwal, ?string $serialRaw = null): void
-    {
-        $serials = collect(preg_split('/\r\n|\r|\n/', (string) $serialRaw))
-            ->map(fn($item) => trim((string) $item))
-            ->filter()
-            ->values();
-
-        $prefix = $this->buatPrefixNomorUnit($barang->kategori->nama);
-        $statusAwal = $kondisiAwal <= 34 ? 'rusak' : 'tersedia';
-
-        for ($i = 1; $i <= $jumlahUnit; $i++) {
-            $barang->unitBarang()->create([
-                'nomor_unit' => $prefix . '-' . str_pad((string) $i, 3, '0', STR_PAD_LEFT),
-                'serial_number' => $serials[$i - 1] ?? null,
-                'kondisi' => $kondisiAwal,
-                'status' => $statusAwal,
-                'catatan' => null,
-            ]);
-        }
-    }
-
-    protected function buatPrefixNomorUnit(string $namaKategori): string
-    {
-        $clean = preg_replace('/[^A-Za-z0-9]/', '', Str::upper($namaKategori)) ?: 'UNT';
-        $prefix = Str::substr($clean, 0, 3);
-
-        return str_pad($prefix, 3, 'X');
-    }
-
-    protected function labelKondisi(int $kondisi): string
-    {
-        return match (true) {
-            $kondisi >= 80 => 'Baik',
-            $kondisi >= 60 => 'Lumayan',
-            $kondisi >= 35 => 'Rusak',
-            default => 'Rusak Parah',
-        };
     }
 }

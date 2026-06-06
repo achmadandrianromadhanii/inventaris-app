@@ -30,7 +30,6 @@ class PeminjamanController extends Controller
         $query = Peminjaman::query()
             ->select([
                 'id',
-                'kode_pinjam',
                 'nama_peminjam',
                 'kelas_id',
                 'jurusan_id',
@@ -50,8 +49,7 @@ class PeminjamanController extends Controller
         if ($filters['q'] !== '') {
             $query->where(function ($subQuery) use ($filters) {
                 $subQuery
-                    ->where('nama_peminjam', 'like', '%' . $filters['q'] . '%')
-                    ->orWhere('kode_pinjam', 'like', '%' . $filters['q'] . '%');
+                    ->where('nama_peminjam', 'like', '%'.$filters['q'].'%');
             });
         }
 
@@ -97,7 +95,7 @@ class PeminjamanController extends Controller
             'kelas:id,nama',
             'jurusan:id,nama',
             'pengguna:id,nama',
-            'detailPeminjaman' => fn($query) => $query
+            'detailPeminjaman' => fn ($query) => $query
                 ->select([
                     'id',
                     'peminjaman_id',
@@ -123,6 +121,7 @@ class PeminjamanController extends Controller
     {
         $data = $request->validated();
 
+        /** @var \App\Models\DetailPeminjaman|null $detail */
         $detail = $peminjaman->detailPeminjaman()
             ->whereKey($data['detail_id'])
             ->first();

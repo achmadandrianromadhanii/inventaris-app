@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use App\Helpers\KondisiHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property \App\Models\Kategori|null $kategori
+ * @property \App\Models\Merek|null $merek
+ * @property \App\Models\Lokasi|null $lokasi
+ */
 class Barang extends Model
 {
     use HasFactory;
@@ -17,9 +23,7 @@ class Barang extends Model
         'nama',
         'kategori_id',
         'merek_id',
-        'merek_manual',
         'lokasi_id',
-        'lokasi_manual',
         'tipe',
         'spesifikasi',
         'tahun_pengadaan',
@@ -76,39 +80,35 @@ class Barang extends Model
 
     public function getLabelMerekAttribute(): string
     {
-        if ($this->merek?->nama) {
-            return $this->merek->nama;
-        }
-
-        if (filled($this->merek_manual)) {
-            return $this->merek_manual;
-        }
-
-        return 'Tidak Diketahui';
+        // Mengembalikan nama merek atau 'Lainnya' jika tidak ada merek yang terkait
+        return $this->merek ? $this->merek->nama : 'Lainnya';
     }
 
     public function getLabelLokasiAttribute(): string
     {
-        if ($this->lokasi?->nama) {
-            return $this->lokasi->nama;
-        }
-
-        if (filled($this->lokasi_manual)) {
-            return $this->lokasi_manual;
-        }
-
-        return 'Tidak Diketahui';
+        // Mengembalikan nama lokasi atau 'Lainnya' jika tidak ada lokasi yang terkait
+        return $this->lokasi ? $this->lokasi->nama : 'Lainnya';
     }
 
     public function getLabelKondisiStokAttribute(): string
     {
-        $kondisi = (int) $this->kondisi_stok;
+        return KondisiHelper::label((int) $this->kondisi_stok);
+    }
 
-        return match (true) {
-            $kondisi >= 80 => 'Baik',
-            $kondisi >= 60 => 'Lumayan',
-            $kondisi >= 35 => 'Rusak',
-            default => 'Rusak Parah',
-        };
+    public function getKondisiEfektifAttribute(): int
+    {
+        if ($this->tipe === 'aset') {
+            return (int) round((float) ($this->rata_kondisi_unit ?? 0));
+        }
+
+        $totalQty = $this->qty_tersedia + $this->qty_dipinjam + $this->qty_rusak;
+
+        if ($totalQty === 0) {
+            return (int) ($this->kondisi_stok ?? 100);
+        }
+
+        $kondisi = (($this->qty_tersedia + $this->qty_dipinjam) * ($this->kondisi_stok ?? 100)) / $totalQty;
+
+        return (int) round($kondisi);
     }
 }

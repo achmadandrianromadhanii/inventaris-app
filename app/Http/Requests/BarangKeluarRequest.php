@@ -27,7 +27,7 @@ class BarangKeluarRequest extends FormRequest
             'jumlah' => ['nullable', 'integer', 'min:1'],
 
             'lokasi_tujuan_id' => ['nullable', 'integer', 'exists:lokasi,id'],
-            'lokasi_tujuan_manual' => ['nullable', 'string', 'max:100'],
+            'lokasi_tujuan_manual' => ['nullable', 'string', 'max:200', 'required_if:lokasi_tujuan_id,lainnya'],
 
             'sumber_tujuan' => ['nullable', 'string', 'max:200'],
             'status_akhir' => ['nullable', Rule::in(['tersedia', 'rusak', 'keluar'])],
@@ -40,17 +40,24 @@ class BarangKeluarRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $lokasiTujuanId = $this->input('lokasi_tujuan_id');
+        $lokasiTujuanManual = $this->input('lokasi_tujuan_manual');
+
+        // Auto-create Lokasi Tujuan on-the-fly jika user memilih "Lainnya"
+        if ($lokasiTujuanId === 'lainnya' && ! empty($lokasiTujuanManual)) {
+            $lokasi = \App\Models\Lokasi::firstOrCreate(['nama' => trim($lokasiTujuanManual)]);
+            $lokasiTujuanId = $lokasi->id;
+        }
 
         $unitBarangIds = collect($this->input('unit_barang_ids', []))
-            ->map(fn($id) => (int) $id)
+            ->map(fn ($id) => (int) $id)
             ->filter()
             ->unique()
             ->values()
             ->all();
 
         $this->merge([
-            'lokasi_tujuan_id' => ($lokasiTujuanId === 'manual' || $lokasiTujuanId === '') ? null : $lokasiTujuanId,
-            'lokasi_tujuan_manual' => is_string($this->lokasi_tujuan_manual) ? trim($this->lokasi_tujuan_manual) : $this->lokasi_tujuan_manual,
+            'lokasi_tujuan_id' => ($lokasiTujuanId === '') ? null : $lokasiTujuanId,
+            'lokasi_tujuan_manual' => $lokasiTujuanManual,
             'sumber_tujuan' => is_string($this->sumber_tujuan) ? trim($this->sumber_tujuan) : $this->sumber_tujuan,
             'status_akhir' => is_string($this->status_akhir) ? trim($this->status_akhir) : $this->status_akhir,
             'catatan' => is_string($this->catatan) ? trim($this->catatan) : $this->catatan,
@@ -63,52 +70,54 @@ class BarangKeluarRequest extends FormRequest
         $validator->after(function (Validator $validator) {
             $barangId = $this->input('barang_id');
 
-            if (!$barangId) {
+            if (! $barangId) {
                 return;
             }
 
             $barang = Barang::query()->find($barangId);
 
-            if (!$barang) {
+            if (! $barang) {
                 return;
             }
 
-            if (!$barang->aktif) {
+            if (! $barang->aktif) {
                 $validator->errors()->add('barang_id', 'Barang tidak aktif dan tidak bisa diproses.');
+
                 return;
             }
 
             $alasan = $this->input('alasan_keluar');
 
             if ($alasan === 'pindah_lokasi') {
-                if (!$this->filled('lokasi_tujuan_id') && !$this->filled('lokasi_tujuan_manual')) {
+                if (! $this->filled('lokasi_tujuan_id')) {
                     $validator->errors()->add('lokasi_tujuan_id', 'Lokasi tujuan wajib diisi untuk pindah lokasi.');
                 }
             }
 
-            if ($alasan === 'hibah' && !$this->filled('sumber_tujuan')) {
+            if ($alasan === 'hibah' && ! $this->filled('sumber_tujuan')) {
                 $validator->errors()->add('sumber_tujuan', 'Tujuan penerima hibah wajib diisi.');
             }
 
             if ($alasan === 'lainnya') {
-                if (!$this->filled('status_akhir')) {
+                if (! $this->filled('status_akhir')) {
                     $validator->errors()->add('status_akhir', 'Status akhir wajib dipilih untuk alasan lainnya.');
                 }
 
-                if (!$this->filled('catatan')) {
+                if (! $this->filled('catatan')) {
                     $validator->errors()->add('catatan', 'Keterangan wajib diisi untuk alasan lainnya.');
                 }
             }
 
             if ($barang->tipe === 'aset' && $alasan !== 'pindah_lokasi') {
                 $unitIds = collect($this->input('unit_barang_ids', []))
-                    ->map(fn($id) => (int) $id)
+                    ->map(fn ($id) => (int) $id)
                     ->filter()
                     ->unique()
                     ->values();
 
                 if ($unitIds->isEmpty()) {
                     $validator->errors()->add('unit_barang_ids', 'Pilih minimal satu unit aset.');
+
                     return;
                 }
 
@@ -128,6 +137,7 @@ class BarangKeluarRequest extends FormRequest
 
                 if ($jumlah < 1) {
                     $validator->errors()->add('jumlah', 'Jumlah barang wajib diisi untuk stok.');
+
                     return;
                 }
 
@@ -154,7 +164,8 @@ class BarangKeluarRequest extends FormRequest
             'jumlah.min' => 'Jumlah minimal 1.',
 
             'lokasi_tujuan_id.exists' => 'Lokasi tujuan tidak valid.',
-            'lokasi_tujuan_manual.max' => 'Lokasi tujuan manual maksimal 100 karakter.',
+            'lokasi_tujuan_id.integer' => 'Pilih lokasi tujuan yang valid.',
+            'lokasi_tujuan_manual.required_if' => 'Lokasi tujuan manual wajib diisi jika memilih Lainnya.',
 
             'sumber_tujuan.max' => 'Sumber/Tujuan maksimal 200 karakter.',
 

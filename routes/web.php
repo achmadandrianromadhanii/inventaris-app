@@ -12,12 +12,25 @@ use App\Http\Controllers\TransaksiController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+// [UPDATE] Anti-Spam: Rate Limit untuk halaman publik siswa.
+// GET routes (halaman, cari barang) diberi batas 20 request/menit per IP — cukup longgar untuk browsing normal.
 Route::middleware('throttle:20,1')->group(function () {
     Route::get('/pinjam', [PeminjamanSiswaController::class, 'index'])->name('siswa.pinjam');
     Route::get('/pinjam/cari-barang', [PeminjamanSiswaController::class, 'cariBarang'])->name('siswa.cari-barang');
+});
+
+// [UPDATE] Anti-Spam: Rate Limit KETAT untuk aksi tulis (POST) siswa.
+// Hanya 3 request/menit per IP — mencegah spam klik berturut-turut saat banyak siswa mengajukan secara bersamaan.
+// Jika melebihi batas, Laravel otomatis mengembalikan HTTP 429 (Too Many Requests).
+Route::middleware('throttle:3,1')->group(function () {
     Route::post('/pinjam/ajukan', [PeminjamanSiswaController::class, 'ajukan'])->name('siswa.ajukan');
     Route::post('/pinjam/cek-kode', [PeminjamanSiswaController::class, 'cekKode'])->name('siswa.cek-kode');
     Route::post('/pinjam/kembalikan', [PeminjamanSiswaController::class, 'kembalikan'])->name('siswa.kembalikan');
+
+    // API JSON (inline pengembalian tanpa reload)
+    Route::post('/pinjam/api/ajukan', [PeminjamanSiswaController::class, 'ajukanApi'])->name('siswa.api.ajukan');
+    Route::post('/pinjam/api/cek-kode', [PeminjamanSiswaController::class, 'cekKodeApi'])->name('siswa.api.cek-kode');
+    Route::post('/pinjam/api/kembalikan', [PeminjamanSiswaController::class, 'kembalikanApi'])->name('siswa.api.kembalikan');
 });
 
 Route::get('/', function () {
@@ -28,6 +41,7 @@ Route::get('/', function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/chart-peminjaman', [DashboardController::class, 'chartPeminjaman'])->name('dashboard.chart.peminjaman');
 
     // Barang
     Route::get('/barang', [BarangController::class, 'index'])->name('barang.index');
@@ -74,8 +88,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // API JSON
-    Route::get('/api/barang/search', [BarangController::class, 'search'])->name('api.barang.search');
-    Route::get('/api/unit/tersedia/{barang}', [BarangController::class, 'unitTersedia'])->name('api.unit.tersedia');
+    Route::middleware('throttle:120,1')->group(function () {
+        Route::get('/api/barang/search', [BarangController::class, 'search'])->name('api.barang.search');
+        Route::get('/api/unit/tersedia/{barang}', [BarangController::class, 'unitTersedia'])->name('api.unit.tersedia');
+    });
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

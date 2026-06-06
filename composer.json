@@ -9,10 +9,15 @@
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "^3.1",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1"
+        "laravel/reverb": "^1.10",
+        "laravel/tinker": "^2.10.1",
+        "pusher/pusher-php-server": "^7.2",
+        "spatie/laravel-image-optimizer": "^1.8"
     },
     "require-dev": {
+        "barryvdh/laravel-debugbar": "*",
         "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.9",
         "laravel/breeze": "^2.3",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.24",
@@ -67,7 +72,9 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
-        ]
+        ],
+        "audit": "./vendor/bin/phpstan analyse --memory-limit=1G",
+        "format": "./vendor/bin/pint"
     },
     "extra": {
         "laravel": {

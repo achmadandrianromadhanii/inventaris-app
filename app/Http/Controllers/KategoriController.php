@@ -29,6 +29,8 @@ class KategoriController extends Controller
             'deskripsi' => $request->validated('deskripsi'),
         ]);
 
+        \Illuminate\Support\Facades\Cache::forget('kategori_dropdown');
+
         return redirect()
             ->route('kategori.index')
             ->with('sukses', 'Kategori berhasil ditambahkan.');
@@ -40,6 +42,8 @@ class KategoriController extends Controller
             'nama' => $request->validated('nama'),
             'deskripsi' => $request->validated('deskripsi'),
         ]);
+
+        \Illuminate\Support\Facades\Cache::forget('kategori_dropdown');
 
         return redirect()
             ->route('kategori.index')
@@ -55,6 +59,8 @@ class KategoriController extends Controller
         }
 
         $kategori->delete();
+
+        \Illuminate\Support\Facades\Cache::forget('kategori_dropdown');
 
         return redirect()
             ->route('kategori.index')

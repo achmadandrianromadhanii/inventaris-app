@@ -21,4 +21,17 @@ class Kategori extends Model
     {
         return $this->hasMany(Barang::class, 'kategori_id');
     }
+
+    public static function getCachedDropdown()
+    {
+        return \Illuminate\Support\Facades\Cache::rememberForever('kategori_dropdown', function () {
+            return self::query()->orderBy('nama')->get(['id', 'nama']);
+        });
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('kategori_dropdown'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('kategori_dropdown'));
+    }
 }

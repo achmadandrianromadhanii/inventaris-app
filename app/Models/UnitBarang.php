@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\KondisiHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,21 +39,11 @@ class UnitBarang extends Model
 
     public function getLabelKondisiAttribute(): string
     {
-        return match (true) {
-            $this->kondisi >= 80 => 'Baik',
-            $this->kondisi >= 60 => 'Lumayan',
-            $this->kondisi >= 35 => 'Rusak',
-            default => 'Rusak Parah',
-        };
+        return KondisiHelper::label((int) $this->kondisi);
     }
 
     public function getWarnaKondisiAttribute(): string
     {
-        return match (true) {
-            $this->kondisi >= 80 => 'emerald',
-            $this->kondisi >= 60 => 'blue',
-            $this->kondisi >= 35 => 'amber',
-            default => 'red',
-        };
+        return KondisiHelper::warna((int) $this->kondisi);
     }
 }

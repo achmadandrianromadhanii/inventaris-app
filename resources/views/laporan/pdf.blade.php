@@ -10,7 +10,7 @@
         }
 
         body {
-            font-family: DejaVu Sans, sans-serif;
+            font-family: Helvetica, Arial, sans-serif;
             font-size: 11px;
             color: #111827;
         }
@@ -28,14 +28,14 @@
         }
 
         .logo-cell {
-            width: 70px;
+            width: 90px;
             vertical-align: top;
+            padding-right: 15px;
         }
 
         .logo {
-            width: 56px;
-            height: 56px;
-            object-fit: contain;
+            width: 75px;
+            height: auto;
         }
 
         .school-name {
@@ -213,10 +213,11 @@
 
 <body>
     @php
+        \Carbon\Carbon::setLocale('id');
         $periodeLabel =
-            \Carbon\Carbon::parse($filters['dari'])->format('d M Y') .
+            \Carbon\Carbon::parse($filters['dari'])->translatedFormat('d F Y') .
             ' - ' .
-            \Carbon\Carbon::parse($filters['sampai'])->format('d M Y');
+            \Carbon\Carbon::parse($filters['sampai'])->translatedFormat('d F Y');
 
         $badgeKondisi = function (int $nilai) {
             if ($nilai >= 80) {
@@ -260,7 +261,7 @@
                     <p class="school-subtitle">Sistem Inventaris Lab RPL — Website</p>
                     <div class="meta">
                         Periode: {{ $periodeLabel }}<br>
-                        Tanggal cetak: {{ $tanggalCetak->format('d M Y H:i') }}
+                        Tanggal cetak: {{ \Carbon\Carbon::parse($tanggalCetak)->translatedFormat('d F Y H:i:s') }} WIB
                     </div>
                 </td>
             </tr>
@@ -269,7 +270,13 @@
 
     {{-- SECTION 1 --}}
     <div class="section">
-        <p class="section-title">Inventaris Barang</p>
+        <p class="section-title">
+            @if(($filters['tipe_laporan'] ?? 'lengkap') === 'rusak')
+                Inventaris Barang Rusak / Perlu Perbaikan
+            @else
+                Inventaris Barang
+            @endif
+        </p>
 
         <div class="summary">
             <span class="summary-badge badge-gray">Total {{ $inventarisSummary['total'] }}</span>
@@ -290,6 +297,7 @@
                         <th>Lokasi</th>
                         <th>Thn</th>
                         <th>Kondisi</th>
+                        <th>Rusak</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -298,9 +306,8 @@
                         @php
                             $isAset = $item->tipe === 'aset';
 
-                            $kondisi = $isAset
-                                ? (int) round((float) ($item->rata_kondisi_unit ?? 0))
-                                : (int) ($item->kondisi_stok ?? 100);
+                            $isAset = $item->tipe === 'aset';
+                            $kondisi = $item->kondisi_efektif;
 
                             [$labelKondisi, $classKondisi] = $badgeKondisi($kondisi);
 
@@ -335,6 +342,9 @@
                                 <span class="kondisi-badge {{ $classKondisi }}">{{ $labelKondisi }}
                                     {{ $kondisi }}%</span>
                             </td>
+                            <td style="color: #b91c1c; font-weight: bold;">
+                                {{ $isAset ? ($item->unit_rusak_count ?? 0) . ' Unit' : ($item->qty_rusak ?? 0) }}
+                            </td>
                             <td>
                                 <span class="status-badge {{ $classStatus }}">{{ $labelStatus }}</span>
                             </td>
@@ -347,6 +357,7 @@
         @endif
     </div>
 
+    @if (($filters['tipe_laporan'] ?? 'lengkap') !== 'rusak')
     {{-- SECTION 2 --}}
     <div class="section page-break">
         <p class="section-title">Transaksi</p>
@@ -434,7 +445,7 @@
 
                         <tr>
                             <td>{{ optional($pinjam->tanggal_pinjam)->format('d M Y') }}</td>
-                            <td>{{ $pinjam->kode_pinjam }}</td>
+                            <td>#{{ $pinjam->id }}</td>
                             <td>{{ $pinjam->nama_peminjam }}</td>
                             <td>{{ $pinjam->kelas?->nama }} / {{ $pinjam->jurusan?->nama }}</td>
                             <td>{{ $pinjam->detail_peminjaman_count }} item</td>
@@ -448,6 +459,7 @@
             <div class="empty">Tidak ada data peminjaman pada periode ini.</div>
         @endif
     </div>
+    @endif
 </body>
 
 </html>

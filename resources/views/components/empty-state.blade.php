@@ -7,10 +7,10 @@
 <div
     {{ $attributes->merge([
         'class' =>
-            'rounded-lg border border-dashed border-gray-300 bg-white px-4 py-8 text-center dark:border-gray-700 dark:bg-gray-800',
+            'rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-8 text-center dark:border-gray-700 dark:bg-gray-800/50',
     ]) }}>
     <div
-        class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-300">
+        class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-500 dark:bg-indigo-900/20 dark:text-indigo-400">
         <i class="bi {{ $icon }} text-lg"></i>
     </div>
 

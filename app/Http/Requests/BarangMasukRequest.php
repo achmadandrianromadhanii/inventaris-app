@@ -30,27 +30,27 @@ class BarangMasukRequest extends FormRequest
             'kategori_id' => ['required', 'integer', 'exists:kategori,id'],
 
             'merek_id' => ['nullable', 'integer', 'exists:merek,id'],
-            'merek_manual' => ['nullable', 'string', 'max:100'],
-
             'lokasi_id' => ['nullable', 'integer', 'exists:lokasi,id'],
-            'lokasi_manual' => ['nullable', 'string', 'max:100'],
+            'merek_manual' => ['nullable', 'string', 'max:200', 'required_if:merek_id,lainnya'],
+            'lokasi_manual' => ['nullable', 'string', 'max:200', 'required_if:lokasi_id,lainnya'],
 
             'tipe' => ['required', Rule::in(['aset', 'stok'])],
             'spesifikasi' => ['nullable', 'string'],
-            'tahun_pengadaan' => ['nullable', 'integer', 'digits:4', 'min:2000', 'max:' . (now()->year + 1)],
             'catatan' => ['nullable', 'string'],
-
-            'kondisi_awal' => ['required', 'integer', 'between:0,100'],
         ];
 
         if ($isStore) {
             $rules['jumlah_unit'] = ['nullable', 'integer', 'min:1', 'max:100', 'required_if:tipe,aset'];
-            $rules['serial_number_list'] = ['nullable', 'string'];
+            $rules['unit_serials'] = ['nullable', 'array'];
+            $rules['unit_serials.*'] = ['nullable', 'string', 'max:100'];
+            $rules['unit_kondisis'] = ['nullable', 'array'];
+            $rules['unit_kondisis.*'] = ['nullable', 'integer', 'between:0,100'];
             $rules['qty_total'] = ['nullable', 'integer', 'min:1', 'required_if:tipe,stok'];
+            $rules['kondisi_awal'] = ['required', 'integer', 'between:0,100'];
         } else {
             $rules['jumlah_unit'] = ['nullable'];
-            $rules['serial_number_list'] = ['nullable'];
-            $rules['qty_total'] = ['nullable', 'integer', 'min:0'];
+            $rules['unit_serials'] = ['nullable'];
+            $rules['unit_kondisis'] = ['nullable'];
         }
 
         return $rules;
@@ -79,14 +79,12 @@ class BarangMasukRequest extends FormRequest
                 'kategori_id' => ['required', 'integer', 'exists:kategori,id'],
 
                 'merek_id' => ['nullable', 'integer', 'exists:merek,id'],
-                'merek_manual' => ['nullable', 'string', 'max:100'],
-
                 'lokasi_id' => ['nullable', 'integer', 'exists:lokasi,id'],
-                'lokasi_manual' => ['nullable', 'string', 'max:100'],
+                'merek_manual' => ['nullable', 'string', 'max:200', 'required_if:merek_id,lainnya'],
+                'lokasi_manual' => ['nullable', 'string', 'max:200', 'required_if:lokasi_id,lainnya'],
 
                 'tipe' => ['required', Rule::in(['aset', 'stok'])],
                 'spesifikasi' => ['nullable', 'string'],
-                'tahun_pengadaan' => ['nullable', 'integer', 'digits:4', 'min:2000', 'max:' . (now()->year + 1)],
             ]);
         }
 
@@ -97,18 +95,35 @@ class BarangMasukRequest extends FormRequest
     {
         $merekId = $this->input('merek_id');
         $lokasiId = $this->input('lokasi_id');
+        $merekManual = $this->input('merek_manual');
+        $lokasiManual = $this->input('lokasi_manual');
+
+        // Auto-create Master Data on-the-fly jika user memilih "Lainnya" dan mengisi teks manual
+        if ($merekId === 'lainnya' && ! empty($merekManual)) {
+            $merek = \App\Models\Merek::firstOrCreate(['nama' => trim($merekManual)]);
+            $merekId = $merek->id;
+        }
+
+        if ($lokasiId === 'lainnya' && ! empty($lokasiManual)) {
+            $lokasi = \App\Models\Lokasi::firstOrCreate(['nama' => trim($lokasiManual)]);
+            $lokasiId = $lokasi->id;
+        }
 
         $this->merge([
             'nama' => $this->sanitizeNullableString('nama'),
-            'merek_manual' => $this->sanitizeNullableString('merek_manual'),
-            'lokasi_manual' => $this->sanitizeNullableString('lokasi_manual'),
             'spesifikasi' => $this->sanitizeNullableString('spesifikasi'),
             'catatan' => $this->sanitizeNullableString('catatan'),
             'sumber_tujuan' => $this->sanitizeNullableString('sumber_tujuan'),
             'mode_barang' => $this->sanitizeModeBarang(),
 
-            'merek_id' => ($merekId === 'lainnya' || $merekId === '') ? null : $merekId,
-            'lokasi_id' => ($lokasiId === 'lainnya' || $lokasiId === '') ? null : $lokasiId,
+            'merek_id' => ($merekId === '') ? null : $merekId,
+            'lokasi_id' => ($lokasiId === '') ? null : $lokasiId,
+            'merek_manual' => $merekManual,
+            'lokasi_manual' => $lokasiManual,
+
+            // Inject automatic real-time values
+            'tanggal_transaksi' => now()->format('Y-m-d'),
+            'tahun_pengadaan' => now()->year,
         ]);
     }
 
@@ -128,10 +143,12 @@ class BarangMasukRequest extends FormRequest
             'kategori_id.exists' => 'Kategori tidak valid.',
 
             'merek_id.exists' => 'Merek tidak valid.',
-            'merek_manual.max' => 'Merek manual maksimal 100 karakter.',
+            'merek_id.integer' => 'Pilih merek yang valid.',
+            'merek_manual.required_if' => 'Merek manual wajib diisi jika memilih Lainnya.',
 
             'lokasi_id.exists' => 'Lokasi tidak valid.',
-            'lokasi_manual.max' => 'Lokasi manual maksimal 100 karakter.',
+            'lokasi_id.integer' => 'Pilih lokasi yang valid.',
+            'lokasi_manual.required_if' => 'Lokasi manual wajib diisi jika memilih Lainnya.',
 
             'tipe.required' => 'Tipe barang wajib dipilih.',
             'tipe.in' => 'Tipe barang harus aset atau stok.',

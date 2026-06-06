@@ -14,7 +14,7 @@
             : 'Semua periode';
     @endphp
 
-    <div class="space-y-4">
+    <turbo-frame id="laporan-filter" data-turbo-action="advance" class="space-y-4 block">
         <div>
             <h1 class="text-base font-semibold text-gray-800 dark:text-gray-100">
                 Laporan
@@ -25,14 +25,15 @@
         </div>
 
         <form method="GET" action="{{ route('laporan.index') }}"
-            class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-            <div class="grid grid-cols-1 gap-3 lg:grid-cols-[160px_160px_auto_auto]">
+            class="rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-gray-700 dark:bg-gray-800">
+            <div class="flex flex-wrap items-end gap-3">
+                <!-- Date Filters -->
                 <div>
                     <label for="dari" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Dari
                     </label>
                     <input id="dari" name="dari" type="date" value="{{ $filters['dari'] }}"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="block w-[140px] rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                 </div>
 
                 <div>
@@ -40,20 +41,33 @@
                         Sampai
                     </label>
                     <input id="sampai" name="sampai" type="date" value="{{ $filters['sampai'] }}"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="block w-[140px] rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                 </div>
 
-                <div class="self-end">
+                <div>
                     <button type="submit"
-                        class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-[7px] text-sm text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700 shadow-md shadow-indigo-500/30">
                         <i class="bi bi-funnel"></i>
                         <span>Terapkan</span>
                     </button>
                 </div>
 
-                <div class="self-end">
-                    <a href="{{ route('laporan.pdf', ['dari' => $filters['dari'], 'sampai' => $filters['sampai']]) }}"
-                        class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600">
+                <!-- Separator Line (Hidden on small screens) -->
+                <div class="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700 mx-1"></div>
+
+                <!-- Tipe Laporan -->
+                <div class="w-52">
+                    <select name="tipe_laporan" onchange="this.form.requestSubmit()" class="block w-full rounded-lg border-gray-200 bg-gray-50 px-3 py-[7px] text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 cursor-pointer shadow-sm">
+                        <option value="lengkap" @selected(($filters['tipe_laporan'] ?? 'lengkap') === 'lengkap')>Laporan Lengkap</option>
+                        <option value="rusak" @selected(($filters['tipe_laporan'] ?? 'lengkap') === 'rusak')>Laporan Barang Rusak</option>
+                    </select>
+                </div>
+
+                <!-- Export PDF -->
+                <div>
+                    <a href="{{ route('laporan.pdf', ['dari' => $filters['dari'], 'sampai' => $filters['sampai'], 'tipe_laporan' => $filters['tipe_laporan'] ?? 'lengkap']) }}"
+                        data-turbo="false" target="_blank"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-[7px] text-sm font-medium text-white shadow-md shadow-red-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:bg-red-600">
                         <i class="bi bi-file-pdf"></i>
                         <span>Export PDF</span>
                     </a>
@@ -65,12 +79,16 @@
             </p>
         </form>
 
-        <section class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-gray-700 dark:bg-gray-800">
             <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <i class="bi bi-box-seam text-sm text-blue-600 dark:text-blue-400"></i>
                     <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                        Inventaris Barang
+                        @if(($filters['tipe_laporan'] ?? 'lengkap') === 'rusak')
+                            Inventaris Barang Rusak / Perlu Perbaikan
+                        @else
+                            Inventaris Barang
+                        @endif
                     </h2>
                 </div>
 
@@ -96,120 +114,129 @@
 
             @if ($inventaris->isNotEmpty())
                 <div class="overflow-x-auto">
-                    <table class="min-w-full border-separate border-spacing-0">
-                        <thead>
-                            <tr>
-                                <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    #
-                                </th>
-                                <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    Nama
-                                </th>
-                                <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    Kategori
-                                </th>
-                                <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    Tipe
-                                </th>
-                                <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    Merek
-                                </th>
-                                <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    Lokasi
-                                </th>
-                                <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    Thn
-                                </th>
-                                <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    Kondisi
-                                </th>
-                                <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                    Status
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($inventaris as $item)
-                                @php
-                                    $isAset = $item->tipe === 'aset';
-
-                                    $kondisi = $isAset
-                                        ? (int) round((float) ($item->rata_kondisi_unit ?? 0))
-                                        : (int) ($item->kondisi_stok ?? 100);
-
-                                    $status = $isAset
-                                        ? (($item->unit_rusak_count ?? 0) > 0
-                                            ? 'rusak'
-                                            : (($item->unit_dipinjam_count ?? 0) > 0
-                                                ? 'dipinjam'
-                                                : (($item->unit_tersedia_count ?? 0) > 0
-                                                    ? 'tersedia'
-                                                    : 'keluar')))
-                                        : (($item->qty_rusak ?? 0) > 0
-                                            ? 'rusak'
-                                            : (($item->qty_dipinjam ?? 0) > 0
-                                                ? 'dipinjam'
-                                                : (($item->qty_tersedia ?? 0) > 0
-                                                    ? 'tersedia'
-                                                    : 'keluar')));
-                                @endphp
-
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                    <td
-                                        class="border-b border-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                        {{ $loop->iteration }}
-                                    </td>
-                                    <td
-                                        class="border-b border-gray-100 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100">
-                                        {{ $item->nama }}
-                                    </td>
-                                    <td
-                                        class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                                        {{ $item->kategori?->nama }}
-                                    </td>
-                                    <td
-                                        class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                                        {{ ucfirst($item->tipe) }}
-                                    </td>
-                                    <td
-                                        class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                                        {{ $item->label_merek }}
-                                    </td>
-                                    <td
-                                        class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                                        {{ $item->label_lokasi }}
-                                    </td>
-                                    <td
-                                        class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                                        {{ $item->tahun_pengadaan ?: '—' }}
-                                    </td>
-                                    <td class="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
-                                        <x-kondisi-badge :kondisi="$kondisi" :show-value="true" />
-                                    </td>
-                                    <td class="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
-                                        <x-status-badge :status="$status" />
-                                    </td>
+                        <table class="min-w-full border-separate border-spacing-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        #
+                                    </th>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Nama
+                                    </th>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Kategori
+                                    </th>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Tipe
+                                    </th>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Merek
+                                    </th>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Lokasi
+                                    </th>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Thn
+                                    </th>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Kondisi
+                                    </th>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Rusak
+                                    </th>
+                                    <th scope="col"
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                                        Status
+                                    </th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach ($inventaris as $item)
+                                    @php
+                                        $isAset = $item->tipe === 'aset';
+
+                                        $isAset = $item->tipe === 'aset';
+                                        $kondisi = $item->kondisi_efektif;
+
+                                        $status = $isAset
+                                            ? (($item->unit_rusak_count ?? 0) > 0
+                                                ? 'rusak'
+                                                : (($item->unit_dipinjam_count ?? 0) > 0
+                                                    ? 'dipinjam'
+                                                    : (($item->unit_tersedia_count ?? 0) > 0
+                                                        ? 'tersedia'
+                                                        : 'keluar')))
+                                            : (($item->qty_rusak ?? 0) > 0
+                                                ? 'rusak'
+                                                : (($item->qty_dipinjam ?? 0) > 0
+                                                    ? 'dipinjam'
+                                                    : (($item->qty_tersedia ?? 0) > 0
+                                                        ? 'tersedia'
+                                                        : 'keluar')));
+                                    @endphp
+
+                                    <tr class="group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
+                                        <td
+                                            class="border-b border-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                            {{ $loop->iteration }}
+                                        </td>
+                                        <td
+                                            class="border-b border-gray-100 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100">
+                                            {{ $item->nama }}
+                                        </td>
+                                        <td
+                                            class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                                            {{ $item->kategori?->nama }}
+                                        </td>
+                                        <td
+                                            class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                                            {{ ucfirst($item->tipe) }}
+                                        </td>
+                                        <td
+                                            class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                                            {{ $item->label_merek }}
+                                        </td>
+                                        <td
+                                            class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                                            {{ $item->label_lokasi }}
+                                        </td>
+                                        <td
+                                            class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                                            {{ $item->tahun_pengadaan ?: '—' }}
+                                        </td>
+                                        <td class="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
+                                            <x-kondisi-badge :kondisi="$kondisi" :show-value="true" />
+                                        </td>
+                                        <td
+                                            class="border-b border-gray-100 px-3 py-2 text-sm text-red-600 dark:border-gray-700 dark:text-red-400 font-medium">
+                                            {{ $isAset ? ($item->unit_rusak_count ?? 0) . ' Unit' : ($item->qty_rusak ?? 0) }}
+                                        </td>
+                                        <td class="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
+                                            <x-status-badge :status="$status" />
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                 </div>
             @else
-                <x-empty-state icon="bi-box-seam" title="Belum ada data inventaris"
-                    message="Data inventaris akan muncul di sini." />
+                <div class="py-6 text-center">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Belum ada data inventaris yang sesuai.</p>
+                </div>
             @endif
         </section>
 
-        <section class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        @if (($filters['tipe_laporan'] ?? 'lengkap') !== 'rusak')
+        <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-gray-700 dark:bg-gray-800">
             <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <i class="bi bi-arrow-left-right text-sm text-blue-600 dark:text-blue-400"></i>
@@ -236,31 +263,31 @@
                         <thead>
                             <tr>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Tanggal
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Jenis
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Barang
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Jml
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Kondisi
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Sumber/Tujuan
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Admin
                                 </th>
                             </tr>
@@ -278,7 +305,7 @@
                                         ($trx->lokasi_tujuan_manual ?? ($trx->sumber_tujuan ?? '—'));
                                 @endphp
 
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                <tr class="group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
                                         {{ optional($trx->tanggal_transaksi)->format('d M Y') }}
@@ -323,7 +350,7 @@
             @endif
         </section>
 
-        <section class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-gray-700 dark:bg-gray-800">
             <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <i class="bi bi-people text-sm text-blue-600 dark:text-blue-400"></i>
@@ -350,41 +377,41 @@
                         <thead>
                             <tr>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Tgl Pinjam
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Kode
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Peminjam
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Kelas
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Item
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Status
                                 </th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($peminjaman as $pinjam)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                <tr class="group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
                                         {{ optional($pinjam->tanggal_pinjam)->format('d M Y') }}
                                     </td>
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 font-mono text-sm text-gray-800 dark:border-gray-700 dark:text-gray-100">
-                                        {{ $pinjam->kode_pinjam }}
+                                        #{{ $pinjam->id }}
                                     </td>
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100">
@@ -411,5 +438,6 @@
                     message="Tidak ada data peminjaman pada periode ini." />
             @endif
         </section>
-    </div>
+        @endif
+    </turbo-frame>
 @endsection

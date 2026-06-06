@@ -14,7 +14,7 @@
         $queryTanpaPage = request()->except('page');
     @endphp
 
-    <div class="space-y-3">
+    <turbo-frame id="peminjaman-index" data-turbo-action="advance" class="space-y-3 block">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2">
                 <h1 class="text-base font-semibold text-gray-800 dark:text-gray-100">
@@ -33,7 +33,7 @@
                 @foreach ($tabLinks as $key => $label)
                     <a href="{{ route('peminjaman.index', array_merge($queryTanpaPage, ['tab' => $key])) }}"
                         class="border-b-2 px-1 py-2 text-sm {{ $tab === $key
-                            ? 'border-blue-600 font-medium text-blue-600'
+                            ? 'border-indigo-600 font-medium text-indigo-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}"
                         @if ($tab === $key) aria-current="page" @endif>
                         {{ $label }}
@@ -47,7 +47,7 @@
         </div>
 
         <form method="GET" action="{{ route('peminjaman.index') }}"
-            class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+            class="rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-gray-700 dark:bg-gray-800">
             <input type="hidden" name="tab" value="{{ $tab }}">
 
             <div class="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_160px_160px_auto]">
@@ -56,7 +56,8 @@
                         Cari nama / kode
                     </label>
                     <input id="q" name="q" type="text" value="{{ $filters['q'] ?? '' }}" autocomplete="off"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        x-data @input.debounce.500ms="$el.closest('form').requestSubmit()"
+                        class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                 </div>
 
                 <div>
@@ -64,7 +65,7 @@
                         Dari
                     </label>
                     <input id="dari" name="dari" type="date" value="{{ $filters['dari'] ?? '' }}"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                 </div>
 
                 <div>
@@ -72,12 +73,12 @@
                         Sampai
                     </label>
                     <input id="sampai" name="sampai" type="date" value="{{ $filters['sampai'] ?? '' }}"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                 </div>
 
                 <div class="self-end">
                     <button type="submit"
-                        class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700 shadow-md shadow-indigo-500/30">
                         <i class="bi bi-funnel" aria-hidden="true"></i>
                         <span>Terapkan</span>
                     </button>
@@ -86,38 +87,37 @@
         </form>
 
         @if ($peminjaman->count() > 0)
-            <div
-                class="hidden overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 lg:block">
+            <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md dark:border-gray-700 dark:bg-gray-800">
                 <div class="overflow-x-auto">
                     <table class="min-w-full border-separate border-spacing-0">
                         <thead>
                             <tr>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Kode
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Tgl
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Nama
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Kelas/Jurusan
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Item
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Status
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-right text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Aksi
                                 </th>
                             </tr>
@@ -128,10 +128,10 @@
                                     $isAktif = $item->status === 'aktif';
                                 @endphp
 
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                <tr class="group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 font-mono text-sm text-gray-800 dark:border-gray-700 dark:text-gray-100">
-                                        {{ $item->kode_pinjam }}
+                                        #{{ $item->id }}
                                     </td>
 
                                     <td
@@ -162,7 +162,8 @@
                                         <div class="inline-flex items-center gap-1.5">
                                             @if ($isAktif)
                                                 <a href="{{ route('peminjaman.show', ['peminjaman' => $item, 'aksi' => 'kembalikan']) }}"
-                                                    class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700"
+                                                    data-turbo-frame="_top"
+                                                    class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-emerald-700 shadow-md shadow-emerald-500/30"
                                                     title="Proses pengembalian" aria-label="Proses pengembalian">
                                                     <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
                                                     <span>Kembalikan</span>
@@ -170,7 +171,8 @@
                                             @endif
 
                                             <a href="{{ route('peminjaman.show', $item) }}"
-                                                class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700"
+                                                data-turbo-frame="_top"
+                                                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700 shadow-md shadow-indigo-500/30"
                                                 title="Lihat detail peminjaman" aria-label="Lihat detail peminjaman">
                                                 <i class="bi bi-eye" aria-hidden="true"></i>
                                                 <span>Detail</span>
@@ -184,54 +186,7 @@
                 </div>
             </div>
 
-            <div class="grid gap-3 lg:hidden">
-                @foreach ($peminjaman as $item)
-                    @php
-                        $isAktif = $item->status === 'aktif';
-                    @endphp
 
-                    <div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-xs text-gray-500 dark:text-gray-400">
-                                    {{ $item->kode_pinjam }}
-                                </p>
-                                <p class="mt-1 text-sm font-medium text-gray-800 dark:text-gray-100">
-                                    {{ $item->nama_peminjam }}
-                                </p>
-                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    {{ $item->kelas?->nama }} / {{ $item->jurusan?->nama }}
-                                </p>
-                            </div>
-
-                            <x-status-badge :status="$item->status" />
-                        </div>
-
-                        <div class="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                            <span>{{ optional($item->tanggal_pinjam)->format('d M Y') }}</span>
-                            <span>{{ $item->detail_peminjaman_count }} item</span>
-                        </div>
-
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            @if ($isAktif)
-                                <a href="{{ route('peminjaman.show', ['peminjaman' => $item, 'aksi' => 'kembalikan']) }}"
-                                    class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700"
-                                    title="Proses pengembalian" aria-label="Proses pengembalian">
-                                    <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
-                                    <span>Kembalikan</span>
-                                </a>
-                            @endif
-
-                            <a href="{{ route('peminjaman.show', $item) }}"
-                                class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700"
-                                title="Lihat detail peminjaman" aria-label="Lihat detail peminjaman">
-                                <i class="bi bi-eye" aria-hidden="true"></i>
-                                <span>Detail</span>
-                            </a>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
 
             <div class="pt-1">
                 {{ $peminjaman->appends($queryTanpaPage)->links('components.pagination') }}
@@ -240,5 +195,5 @@
             <x-empty-state icon="bi-people" title="Belum ada data peminjaman"
                 message="Data peminjaman akan muncul di sini setelah siswa melakukan peminjaman." />
         @endif
-    </div>
+    </turbo-frame>
 @endsection

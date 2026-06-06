@@ -22,7 +22,7 @@
                 </span>
 
                 <button type="button"
-                    class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                    class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700 shadow-md shadow-indigo-500/30"
                     @click="$dispatch('open-tambah-kategori')">
                     <i class="bi bi-plus-lg"></i>
                     <span>Tambah Kategori</span>
@@ -31,41 +31,40 @@
         </div>
 
         @if ($kategori->count() > 0)
-            <div
-                class="hidden overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 lg:block">
+            <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md dark:border-gray-700 dark:bg-gray-800">
                 <div class="overflow-x-auto">
                     <table class="min-w-full border-separate border-spacing-0">
                         <thead>
                             <tr>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     #
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Nama
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Deskripsi
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Jumlah Barang
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Dibuat
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-right text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Aksi
                                 </th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($kategori as $item)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                <tr class="group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
                                         {{ $kategori->firstItem() + $loop->index }}
@@ -97,14 +96,14 @@
                                     <td class="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
                                         <div class="flex justify-end gap-1">
                                             <button type="button"
-                                                class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 text-sm text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-sm text-amber-600 transition-all hover:-translate-y-0.5 hover:bg-amber-100 hover:shadow-sm dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30"
                                                 @click="$dispatch('open-edit-kategori-{{ $item->id }}')"
                                                 title="Edit kategori" aria-label="Edit kategori">
                                                 <i class="bi bi-pencil-square"></i>
                                             </button>
 
                                             <button type="button"
-                                                class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-red-50 text-sm text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-sm text-red-600 transition-all hover:-translate-y-0.5 hover:bg-red-100 hover:shadow-sm dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
                                                 @click="$dispatch('open-hapus-kategori-{{ $item->id }}')"
                                                 title="Hapus kategori" aria-label="Hapus kategori">
                                                 <i class="bi bi-trash"></i>
@@ -118,49 +117,7 @@
                 </div>
             </div>
 
-            <div class="grid gap-3 lg:hidden">
-                @foreach ($kategori as $item)
-                    <div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                    {{ $item->nama }}
-                                </p>
-                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    {{ $item->deskripsi ?: 'Tanpa deskripsi' }}
-                                </p>
-                            </div>
 
-                            <span
-                                class="inline-flex shrink-0 items-center rounded-full bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">
-                                {{ $item->barang_count }} barang
-                            </span>
-                        </div>
-
-                        <div class="mt-3 flex items-center justify-between">
-                            <p class="text-[11px] text-gray-400 dark:text-gray-500">
-                                Dibuat {{ $item->created_at?->format('d M Y') }}
-                            </p>
-
-                            <div class="flex gap-1">
-                                <button type="button"
-                                    class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 text-sm text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30"
-                                    @click="$dispatch('open-edit-kategori-{{ $item->id }}')" title="Edit kategori"
-                                    aria-label="Edit kategori">
-                                    <i class="bi bi-pencil-square"></i>
-                                </button>
-
-                                <button type="button"
-                                    class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-red-50 text-sm text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
-                                    @click="$dispatch('open-hapus-kategori-{{ $item->id }}')" title="Hapus kategori"
-                                    aria-label="Hapus kategori">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
 
             <div class="pt-1">
                 {{ $kategori->links('components.pagination') }}
@@ -169,7 +126,7 @@
             <x-empty-state icon="bi-tags" title="Belum ada kategori"
                 message="Tambahkan kategori pertama untuk mulai mengelompokkan data barang.">
                 <button type="button"
-                    class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                    class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700 shadow-md shadow-indigo-500/30"
                     @click="$dispatch('open-tambah-kategori')">
                     <i class="bi bi-plus-lg"></i>
                     <span>Tambah Kategori</span>
@@ -191,7 +148,7 @@
                     </label>
                     <input id="nama-tambah" name="nama" type="text"
                         value="{{ old('_form') === 'tambah-kategori' ? old('nama') : '' }}" required maxlength="100"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                     @if (old('_form') === 'tambah-kategori')
                         @error('nama')
                             <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -204,7 +161,7 @@
                         Deskripsi
                     </label>
                     <textarea id="deskripsi-tambah" name="deskripsi" rows="3"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('_form') === 'tambah-kategori' ? old('deskripsi') : '' }}</textarea>
+                        class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('_form') === 'tambah-kategori' ? old('deskripsi') : '' }}</textarea>
                     @if (old('_form') === 'tambah-kategori')
                         @error('deskripsi')
                             <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -212,15 +169,15 @@
                     @endif
                 </div>
 
-                <div class="flex justify-end gap-2 pt-1">
+                <div class="mt-4 flex flex-row justify-end gap-2 pt-1">
                     <button type="button"
-                        class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                        class="inline-flex w-auto items-center justify-center rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-700 transition-colors hover:bg-slate-200 dark:bg-gray-700 dark:text-slate-200 dark:hover:bg-gray-600"
                         @click="modalTambah = false">
                         Batal
                     </button>
 
                     <button type="submit"
-                        class="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700">
+                        class="inline-flex w-auto items-center justify-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-indigo-700 shadow-md shadow-indigo-500/30">
                         Simpan
                     </button>
                 </div>
@@ -245,7 +202,7 @@
                         <input id="nama-{{ $item->id }}" name="nama" type="text"
                             value="{{ old('_form') === 'edit-kategori-' . $item->id ? old('nama') : $item->nama }}"
                             required maxlength="100"
-                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                            class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                         @if (old('_form') === 'edit-kategori-' . $item->id)
                             @error('nama')
                                 <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -259,7 +216,7 @@
                             Deskripsi
                         </label>
                         <textarea id="deskripsi-{{ $item->id }}" name="deskripsi" rows="3"
-                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('_form') === 'edit-kategori-' . $item->id ? old('deskripsi') : $item->deskripsi }}</textarea>
+                            class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('_form') === 'edit-kategori-' . $item->id ? old('deskripsi') : $item->deskripsi }}</textarea>
                         @if (old('_form') === 'edit-kategori-' . $item->id)
                             @error('deskripsi')
                                 <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -267,15 +224,15 @@
                         @endif
                     </div>
 
-                    <div class="flex justify-end gap-2 pt-1">
+                    <div class="mt-4 flex flex-row justify-end gap-2 pt-1">
                         <button type="button"
-                            class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                            class="inline-flex w-auto items-center justify-center rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-700 transition-colors hover:bg-slate-200 dark:bg-gray-700 dark:text-slate-200 dark:hover:bg-gray-600"
                             @click="editKategori = false">
                             Batal
                         </button>
 
                         <button type="submit"
-                            class="rounded-md bg-amber-500 px-3 py-1.5 text-xs text-white hover:bg-amber-600">
+                            class="inline-flex w-auto items-center justify-center rounded-lg bg-amber-500 px-3 py-1.5 text-xs text-white transition-colors hover:bg-amber-600">
                             Perbarui
                         </button>
                     </div>
@@ -289,7 +246,7 @@
                 confirm-text="Ya, Hapus">
                 <x-slot:footer>
                     <button type="button"
-                        class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                        class="inline-flex w-auto items-center justify-center rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-700 transition-colors hover:bg-slate-200 dark:bg-gray-700 dark:text-slate-200 dark:hover:bg-gray-600"
                         @click="hapusKategori = false">
                         Batal
                     </button>
@@ -297,9 +254,8 @@
                     <form method="POST" action="{{ route('kategori.destroy', $item) }}">
                         @csrf
                         @method('DELETE')
-
                         <button type="submit"
-                            class="rounded-md bg-red-500 px-3 py-1.5 text-xs text-white hover:bg-red-600">
+                            class="inline-flex w-auto items-center justify-center rounded-lg bg-red-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-red-700 shadow-md shadow-red-500/30">
                             Ya, Hapus
                         </button>
                     </form>

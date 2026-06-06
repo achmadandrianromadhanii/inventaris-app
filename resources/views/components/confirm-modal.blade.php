@@ -8,17 +8,25 @@
     'icon' => 'bi-exclamation-triangle-fill',
 ])
 
-<div x-cloak x-show="{{ $name }}" x-transition.opacity.duration.200ms class="fixed inset-0 z-[95] overflow-y-auto"
+<div x-cloak x-show="{{ $name }}" x-transition.opacity.duration.300ms class="fixed inset-0 z-[95] overflow-y-auto"
     aria-modal="true" role="dialog" @keydown.escape.window="{{ $name }} = false">
-    <div class="fixed inset-0 bg-gray-900/60" @click="{{ $name }} = false"></div>
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="{{ $name }} = false"></div>
 
+    <!-- Container: Center on all devices -->
     <div class="relative flex min-h-screen items-center justify-center p-4">
-        <div x-show="{{ $name }}" x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-            x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100"
-            x-transition:leave-end="opacity-0 scale-95"
-            class="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+        
+        <!-- Modal -->
+        <div x-show="{{ $name }}" 
+            x-transition:enter="transition-transform ease-out duration-200"
+            x-transition:enter-start="translate-y-4 opacity-0 sm:translate-y-0 sm:scale-95" 
+            x-transition:enter-end="translate-y-0 opacity-100 sm:scale-100"
+            x-transition:leave="transition-transform ease-in duration-150" 
+            x-transition:leave-start="translate-y-0 opacity-100 sm:scale-100"
+            x-transition:leave-end="translate-y-4 opacity-0 sm:translate-y-0 sm:scale-95"
+            class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-gray-800"
             @click.stop>
+
             <div class="p-4">
                 <div class="flex items-start gap-3">
                     <div
@@ -26,11 +34,11 @@
                         <i class="bi {{ $icon }} text-base"></i>
                     </div>
 
-                    <div class="min-w-0">
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                    <div class="min-w-0 pt-0">
+                        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">
                             {{ $title }}
                         </h3>
-                        <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
+                        <p class="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                             {{ $message }}
                         </p>
                     </div>
@@ -42,9 +50,10 @@
                     </div>
                 @endif
 
-                <div class="mt-4 flex justify-end gap-2">
+                <!-- Footer / Action Buttons -->
+                <div class="mt-4 flex flex-row justify-end gap-2">
                     <button type="button"
-                        class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                        class="inline-flex w-auto items-center justify-center rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-700 transition-colors hover:bg-slate-200 dark:bg-gray-700 dark:text-slate-200 dark:hover:bg-gray-600"
                         @click="{{ $name }} = false">
                         {{ $cancelText }}
                     </button>
@@ -53,7 +62,7 @@
                         {{ $footer }}
                     @else
                         <button type="button"
-                            class="rounded-md px-3 py-1.5 text-xs transition-colors {{ $confirmClass }}">
+                            class="inline-flex w-auto items-center justify-center rounded-lg px-3 py-1.5 text-xs transition-colors {{ $confirmClass }}">
                             {{ $confirmText }}
                         </button>
                     @endisset

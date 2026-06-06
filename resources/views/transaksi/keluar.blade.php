@@ -24,8 +24,9 @@
         </div>
 
         <form method="POST" action="{{ route('transaksi.simpan-keluar') }}"
-            class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800 lg:p-4"
+            class="rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-gray-700 dark:bg-gray-800"
             x-data="{
+                errors: {},
                 query: '',
                 results: [],
                 selected: @js($barangTerpilih ?? null),
@@ -35,11 +36,52 @@
                 searchTimeout: null,
                 alasan: @js(old('alasan_keluar', 'pindah_lokasi')),
                 lokasiTujuanMode: @js(old('_lokasi_tujuan_mode', old('lokasi_tujuan_id'))),
+                isiCatatan: @js(old('catatan') !== null && old('catatan') !== ''),
                 loading: false,
                 barangSearchUrl: @js(route('api.barang.search')),
                 unitBaseUrl: @js(url('/api/unit/tersedia')),
+                
+                // [UPDATE] Logika Smart Selector: Variabel untuk input angka centang otomatis
+                jumlahAuto: '',
+
+                // [UPDATE] Logika Smart Selector: Mencentang semua unit yang ada di list
+                pilihSemua() {
+                    this.selectedUnitIds = this.units.map(u => String(u.id));
+                },
+
+                // [UPDATE] Logika Smart Selector: Mencentang hanya unit yang statusnya rusak atau kondisi < 80%
+                pilihRusak() {
+                    this.selectedUnitIds = this.units.filter(u => u.status === 'rusak' || Number(u.kondisi) < 80).map(u => String(u.id));
+                },
+
+                // [UPDATE] Logika Smart Selector: Mencentang hanya unit yang statusnya tersedia/baik
+                pilihTersedia() {
+                    this.selectedUnitIds = this.units.filter(u => u.status === 'tersedia').map(u => String(u.id));
+                },
+
+                // [UPDATE] Logika Smart Selector: Menghapus semua centangan
+                kosongkanPilihan() {
+                    this.selectedUnitIds = [];
+                    this.jumlahAuto = '';
+                },
+
+                // [UPDATE] Logika Smart Selector: Mencentang N unit teratas secara otomatis saat angka diketik
+                pilihBerdasarkanJumlah() {
+                    let jumlah = parseInt(this.jumlahAuto);
+                    if (!isNaN(jumlah) && jumlah > 0) {
+                        // slice(0, jumlah) mengambil array dari indeks 0 sebanyak 'jumlah'
+                        this.selectedUnitIds = this.units.slice(0, jumlah).map(u => String(u.id));
+                    } else {
+                        this.selectedUnitIds = [];
+                    }
+                },
             
                 init() {
+                    // [UPDATE] Logika Smart Selector: Memantau input angka secara real-time. Langsung centang tanpa perlu tekan Enter!
+                    this.$watch('jumlahAuto', (value) => {
+                        this.pilihBerdasarkanJumlah();
+                    });
+
                     if (this.selected) {
                         this.query = this.selected.nama || '';
             
@@ -126,7 +168,7 @@
                         } catch (_) {
                             this.results = [];
                         }
-                    }, 250);
+                    }, 400);
                 },
             
                 async pilihBarang(item) {
@@ -208,9 +250,67 @@
                         return '';
                     }
             
-                    return this.lokasiTujuanMode === 'manual' ? '' : (this.lokasiTujuanMode || '');
-                }
-            }" x-init="init()" @submit="loading = true">
+                    return this.lokasiTujuanMode || '';
+                },
+                async submitForm(e) {
+                    this.loading = true;
+                    this.errors = {};
+                    const form = e.target;
+                    const formData = new FormData(form);
+                    
+                    try {
+                        const response = await fetch(form.action, {
+                            method: form.method,
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json'
+                            }
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            window.dispatchEvent(new CustomEvent('tampilkan-toast', { detail: { pesan: data.message || 'Berhasil disimpan.', tipe: 'success' } }));
+                            
+                            // Reset form
+                            this.query = '';
+                            this.selected = null;
+                            this.units = [];
+                            this.selectedUnitIds = [];
+                            this.jumlahAuto = '';
+                            this.alasan = 'pindah_lokasi';
+                            this.lokasiTujuanMode = '';
+                            
+                            const formEls = form.querySelectorAll('input:not([type=hidden]), select, textarea');
+                            formEls.forEach(el => {
+                                if (el.type === 'number') el.value = el.defaultValue || 1;
+                                else el.value = '';
+                            });
+                            
+                            // Refresh tabel riwayat
+                            const htmlRes = await fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                            const html = await htmlRes.text();
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(html, 'text/html');
+                            const newTable = doc.querySelector('#riwayat-container');
+                            const oldTable = document.querySelector('#riwayat-container');
+                            if (newTable && oldTable) {
+                                oldTable.innerHTML = newTable.innerHTML;
+                            }
+                        } else if (response.status === 422) {
+                            this.errors = data.errors || {};
+                            const firstError = Object.values(this.errors)[0]?.[0] || 'Terdapat kesalahan pengisian.';
+                            window.dispatchEvent(new CustomEvent('tampilkan-toast', { detail: { pesan: firstError, tipe: 'error' } }));
+                        } else {
+                            window.dispatchEvent(new CustomEvent('tampilkan-toast', { detail: { pesan: data.message || 'Terjadi kesalahan.', tipe: 'error' } }));
+                        }
+                    } catch (error) {
+                        window.dispatchEvent(new CustomEvent('tampilkan-toast', { detail: { pesan: 'Gagal menghubungi server.', tipe: 'error' } }));
+                    }
+                    this.loading = false;
+                },
+            }" x-init="init()" @submit.prevent="submitForm($event)">
             @csrf
 
             <div class="space-y-4">
@@ -226,7 +326,7 @@
 
                         <input id="barang_search" type="text" x-model="query" @input="cariBarang()" autocomplete="off"
                             placeholder="Ketik minimal 2 huruf..."
-                            class="block w-full rounded-md border-gray-300 py-1.5 pl-8 pr-10 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                            class="block w-full rounded-lg border-gray-200 bg-gray-50 py-1.5 pl-8 pr-10 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
 
                         <button x-cloak x-show="hasSelectedBarang()" type="button"
                             class="absolute inset-y-0 right-0 inline-flex items-center px-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -316,12 +416,11 @@
                     <label class="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Alasan Keluar
                     </label>
-
                     <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
                         <button type="button" @click="alasan = 'pindah_lokasi'"
                             :class="alasan === 'pindah_lokasi'
                                 ?
-                                'border-blue-600 bg-blue-600 text-white' :
+                                'border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-500/30 transition-all hover:-translate-y-0.5' :
                                 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'"
                             class="rounded-md border px-3 py-2 text-xs">
                             Pindah Lokasi
@@ -330,7 +429,7 @@
                         <button type="button" @click="alasan = 'dibuang'"
                             :class="alasan === 'dibuang'
                                 ?
-                                'border-blue-600 bg-blue-600 text-white' :
+                                'border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-500/30 transition-all hover:-translate-y-0.5' :
                                 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'"
                             class="rounded-md border px-3 py-2 text-xs">
                             Dibuang
@@ -339,7 +438,7 @@
                         <button type="button" @click="alasan = 'hibah'"
                             :class="alasan === 'hibah'
                                 ?
-                                'border-blue-600 bg-blue-600 text-white' :
+                                'border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-500/30 transition-all hover:-translate-y-0.5' :
                                 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'"
                             class="rounded-md border px-3 py-2 text-xs">
                             Hibah
@@ -348,7 +447,7 @@
                         <button type="button" @click="alasan = 'lainnya'"
                             :class="alasan === 'lainnya'
                                 ?
-                                'border-blue-600 bg-blue-600 text-white' :
+                                'border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-500/30 transition-all hover:-translate-y-0.5' :
                                 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'"
                             class="rounded-md border px-3 py-2 text-xs">
                             Lainnya
@@ -376,35 +475,28 @@
 
                         <select id="lokasi_tujuan_selector" x-model="lokasiTujuanMode" :disabled="!butuhLokasi()"
                             name="_lokasi_tujuan_mode"
-                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                            class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                             <option value="">Pilih lokasi</option>
                             @foreach ($lokasi as $item)
                                 <option value="{{ $item->id }}" @selected((string) old('_lokasi_tujuan_mode', old('lokasi_tujuan_id')) === (string) $item->id)>
                                     {{ $item->nama }}
                                 </option>
                             @endforeach
-                            <option value="manual" @selected(old('_lokasi_tujuan_mode', old('lokasi_tujuan_id')) === 'manual')>Lainnya</option>
+                            <option value="lainnya" @selected((string) old('_lokasi_tujuan_mode', old('lokasi_tujuan_id')) === 'lainnya')>Lainnya</option>
                         </select>
+
+                        <div x-cloak x-show="lokasiTujuanMode === 'lainnya'" x-transition class="mt-2">
+                            <input type="text" id="lokasi_tujuan_manual" name="lokasi_tujuan_manual" value="{{ old('lokasi_tujuan_manual') }}"
+                                placeholder="Ketik nama lokasi tujuan baru..." :disabled="!butuhLokasi()"
+                                class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                            @error('lokasi_tujuan_manual')
+                                <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </div>
 
                         <input type="hidden" name="lokasi_tujuan_id" :value="lokasiTujuanValue()">
 
                         @error('lokasi_tujuan_id')
-                            <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div x-cloak x-show="lokasiTujuanMode === 'manual'">
-                        <label for="lokasi_tujuan_manual"
-                            class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                            Lokasi Tujuan Manual
-                        </label>
-
-                        <input id="lokasi_tujuan_manual" name="lokasi_tujuan_manual" type="text"
-                            value="{{ old('lokasi_tujuan_manual') }}"
-                            :disabled="!butuhLokasi() || lokasiTujuanMode !== 'manual'"
-                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
-
-                        @error('lokasi_tujuan_manual')
                             <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
                     </div>
@@ -417,7 +509,7 @@
 
                     <input id="sumber_tujuan" name="sumber_tujuan" type="text" value="{{ old('sumber_tujuan') }}"
                         placeholder="Contoh: Sekolah Mitra / Donasi / Instansi" :disabled="!butuhTujuanHibah()"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
 
                     @error('sumber_tujuan')
                         <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -425,39 +517,88 @@
                 </div>
 
                 <div x-cloak x-show="butuhUnitAset()">
-                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
+                <div x-cloak x-show="butuhUnitAset()">
+                    <label class="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-300">
                         Pilih Unit Aset
                     </label>
 
-                    <div x-cloak x-show="loadingUnits"
-                        class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400">
-                        Memuat unit...
-                    </div>
+                    <!-- [UPDATE] UI/UX: Membagi layout menjadi 2 kolom (Kiri: Kendali, Kanan: Daftar Unit) agar tidak terlalu panjang ke samping -->
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-4 lg:grid-cols-12">
+                        
+                        <!-- Kolom Panel Kendali Cerdas (Sebelah Kiri) -->
+                        <div class="md:col-span-1 lg:col-span-4" x-cloak x-show="units.length > 0 && !loadingUnits">
+                            <div class="rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800/80">
+                                <p class="mb-2 border-b border-gray-100 pb-2 text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    Pilih Cepat
+                                </p>
+                                
+                                <div class="space-y-2">
+                                    <!-- Checkbox Semua -->
+                                    <label class="flex cursor-pointer items-center gap-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 p-1 transition-colors">
+                                        <!-- Logika @change untuk mencentang otomatis ketika dicentang -->
+                                        <input type="checkbox" @change="$event.target.checked ? pilihSemua() : kosongkanPilihan()" 
+                                            :checked="units.length > 0 && selectedUnitIds.length === units.length"
+                                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-900">
+                                        <span class="text-xs font-medium text-gray-700 dark:text-gray-200">Semua Unit</span>
+                                    </label>
+                                    
+                                    <!-- Checkbox Rusak -->
+                                    <label class="flex cursor-pointer items-center gap-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 p-1 transition-colors">
+                                        <input type="checkbox" @change="$event.target.checked ? pilihRusak() : kosongkanPilihan()" 
+                                            class="rounded border-gray-300 text-rose-500 focus:ring-rose-500 dark:border-gray-600 dark:bg-gray-900">
+                                        <span class="text-xs font-medium text-gray-700 dark:text-gray-200">Unit Rusak</span>
+                                    </label>
 
-                    <div x-cloak x-show="!loadingUnits"
-                        class="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2.5 dark:border-gray-700 dark:bg-gray-900/40">
-                        <template x-if="units.length === 0">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                                Tidak ada unit yang bisa diproses.
-                            </p>
-                        </template>
+                                    <!-- Checkbox Tersedia -->
+                                    <label class="flex cursor-pointer items-center gap-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 p-1 transition-colors">
+                                        <input type="checkbox" @change="$event.target.checked ? pilihTersedia() : kosongkanPilihan()" 
+                                            class="rounded border-gray-300 text-emerald-500 focus:ring-emerald-500 dark:border-gray-600 dark:bg-gray-900">
+                                        <span class="text-xs font-medium text-gray-700 dark:text-gray-200">Unit Tersedia</span>
+                                    </label>
+                                </div>
 
-                        <template x-for="unit in units" :key="unit.id">
-                            <label
-                                class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white dark:hover:bg-gray-800">
-                                <input type="checkbox" name="unit_barang_ids[]" :value="String(unit.id)"
-                                    x-model="selectedUnitIds" :disabled="!butuhUnitAset()">
-                                <span class="text-sm text-gray-700 dark:text-gray-200">
-                                    <span x-text="unit.nomor_unit"></span>
-                                    —
-                                    <span x-text="unit.kondisi"></span>%
-                                    —
-                                    <span x-text="unit.label_kondisi"></span>
-                                    —
-                                    <span x-text="unit.status"></span>
-                                </span>
-                            </label>
-                        </template>
+                                <div class="mt-3 border-t border-gray-100 pt-3 dark:border-gray-700">
+                                    <label for="jumlah_auto" class="mb-1 block text-[11px] font-medium text-gray-600 dark:text-gray-400">
+                                        Pilih Berdasarkan Jumlah
+                                    </label>
+                                    <input type="number" id="jumlah_auto" x-model="jumlahAuto" min="1" :max="units.length" placeholder="Masukkan angka..."
+                                        class="block w-full rounded-md border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs shadow-inner focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Kolom Daftar Unit (Sebelah Kanan, Dipotong agar tidak memanjang) -->
+                        <div class="md:col-span-3 lg:col-span-8">
+                            <div x-cloak x-show="loadingUnits"
+                                class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-400">
+                                Memuat unit...
+                            </div>
+
+                            <div x-cloak x-show="!loadingUnits"
+                                class="max-h-52 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2.5 shadow-inner dark:border-gray-700 dark:bg-gray-900/40">
+                                <template x-if="units.length === 0">
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                                        Tidak ada unit yang bisa diproses.
+                                    </p>
+                                </template>
+
+                                <template x-for="unit in units" :key="unit.id">
+                                    <label
+                                        class="flex items-center gap-3 rounded-md px-2.5 py-2 hover:bg-white dark:hover:bg-gray-800 transition-colors cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-gray-700">
+                                        <input type="checkbox" name="unit_barang_ids[]" :value="String(unit.id)"
+                                            x-model="selectedUnitIds" :disabled="!butuhUnitAset()"
+                                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-900">
+                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                            <span x-text="unit.nomor_unit"></span>
+                                        </span>
+                                        <span class="ml-auto text-xs text-gray-500 dark:text-gray-400">
+                                            <span x-text="unit.kondisi + '%'"></span> ·
+                                            <span x-text="unit.status"></span>
+                                        </span>
+                                    </label>
+                                </template>
+                            </div>
+                        </div>
                     </div>
 
                     @error('unit_barang_ids')
@@ -472,7 +613,7 @@
 
                     <input id="jumlah" name="jumlah" type="number" min="1" value="{{ old('jumlah', 1) }}"
                         :disabled="!butuhJumlahStok()"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
 
                     <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                         Maksimal sesuai stok tersedia.
@@ -490,7 +631,7 @@
                         </label>
 
                         <select id="status_akhir" name="status_akhir" :disabled="!butuhLainnya()"
-                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                            class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                             <option value="">Pilih status akhir</option>
                             <option value="tersedia" @selected(old('status_akhir') === 'tersedia')>Tersedia</option>
                             <option value="rusak" @selected(old('status_akhir') === 'rusak')>Rusak</option>
@@ -503,12 +644,15 @@
                     </div>
 
                     <div>
-                        <label for="catatan" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                            Keterangan
+                        <label class="mb-1 flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer">
+                            <input type="checkbox" x-model="isiCatatan"
+                                class="rounded border-gray-300 text-red-500 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-900">
+                            <span>Keterangan</span>
                         </label>
 
-                        <textarea id="catatan" name="catatan" rows="3" :disabled="!butuhLainnya()"
-                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan') }}</textarea>
+                        <textarea x-cloak x-show="isiCatatan" x-transition
+                            id="catatan" name="catatan" rows="3" :disabled="!butuhLainnya() || !isiCatatan"
+                            class="mt-1 block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan') }}</textarea>
 
                         @error('catatan')
                             <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -517,12 +661,15 @@
                 </div>
 
                 <div x-cloak x-show="!butuhLainnya()">
-                    <label for="catatan_umum" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                        Catatan
+                    <label class="mb-1 flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer">
+                        <input type="checkbox" x-model="isiCatatan"
+                            class="rounded border-gray-300 text-red-500 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-900">
+                        <span>Catatan Umum</span>
                     </label>
 
-                    <textarea id="catatan_umum" name="catatan" rows="3" :disabled="butuhLainnya()"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan') }}</textarea>
+                    <textarea x-cloak x-show="isiCatatan" x-transition
+                        id="catatan_umum" name="catatan" rows="3" :disabled="butuhLainnya() || !isiCatatan"
+                        class="mt-1 block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan') }}</textarea>
 
                     @error('catatan')
                         <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -537,7 +684,7 @@
 
                     <input id="tanggal_transaksi" name="tanggal_transaksi" type="date"
                         value="{{ old('tanggal_transaksi', now()->format('Y-m-d')) }}"
-                        class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
 
                     @error('tanggal_transaksi')
                         <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
@@ -546,7 +693,7 @@
 
                 <div class="flex justify-end border-t border-gray-200 pt-3 dark:border-gray-700">
                     <button type="submit" :disabled="loading" :class="loading ? 'opacity-70 cursor-not-allowed' : ''"
-                        class="inline-flex items-center gap-2 rounded-md bg-red-500 px-4 py-1.5 text-sm text-white hover:bg-red-600">
+                        class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-1.5 text-sm text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700 shadow-md shadow-indigo-500/30">
                         <span x-show="!loading" class="inline-flex items-center gap-2">
                             <i class="bi bi-check-lg"></i>
                             <span>Catat Barang Keluar</span>
@@ -561,7 +708,7 @@
             </div>
         </form>
 
-        <section class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800 lg:p-4">
+        <section id="riwayat-container" class="rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-gray-700 dark:bg-gray-800">
             <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
@@ -574,50 +721,50 @@
 
                 <form method="GET" action="{{ route('transaksi.keluar') }}" class="flex flex-wrap items-center gap-2">
                     <input type="date" name="dari" value="{{ $filterTanggal['dari'] }}"
-                        class="rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                     <input type="date" name="sampai" value="{{ $filterTanggal['sampai'] }}"
-                        class="rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                        class="rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                     <button type="submit"
-                        class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                        class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                         Terapkan
                     </button>
                 </form>
             </div>
 
             @if ($riwayatData->count() > 0)
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <table class="min-w-full border-separate border-spacing-0">
                         <thead>
                             <tr>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Tanggal
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Barang
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Alasan
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Unit/Jumlah
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Tujuan
                                 </th>
                                 <th scope="col"
-                                    class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                     Admin
                                 </th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($riwayatData as $trx)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                <tr class="group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
                                         {{ optional($trx->tanggal_transaksi)->format('d M Y') }}
@@ -651,7 +798,7 @@
 
                                     <td
                                         class="border-b border-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                        {{ $trx->lokasiTujuan?->nama ?? ($trx->lokasi_tujuan_manual ?? ($trx->sumber_tujuan ?? '—')) }}
+                                        {{ $trx->lokasiTujuan?->nama ?? ($trx->sumber_tujuan ?? '—') }}
                                     </td>
 
                                     <td
@@ -663,6 +810,8 @@
                         </tbody>
                     </table>
                 </div>
+
+
 
                 @if ($isPaginator)
                     <div class="pt-3">

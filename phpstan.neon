@@ -1,0 +1,11 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Level analisa: 5 = ketat tapi realistis untuk proyek Laravel
+    # Level 0-9 (semakin tinggi semakin ketat)
+    level: 5
+
+    # Folder yang akan dianalisa oleh Larastan
+    paths:
+        - app/

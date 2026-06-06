@@ -7,6 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property \App\Models\Kelas|null $kelas
+ * @property \App\Models\Jurusan|null $jurusan
+ * @property \App\Models\Pengguna|null $pengguna
+ * @property \Illuminate\Database\Eloquent\Collection<int, \App\Models\DetailPeminjaman>|null $detailPeminjaman
+ */
 class Peminjaman extends Model
 {
     use HasFactory;
@@ -14,7 +20,6 @@ class Peminjaman extends Model
     protected $table = 'peminjaman';
 
     protected $fillable = [
-        'kode_pinjam',
         'nama_peminjam',
         'kelas_id',
         'jurusan_id',

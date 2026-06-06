@@ -24,7 +24,7 @@
                     Detail Peminjaman
                 </h1>
                 <p class="mt-1 font-mono text-sm text-gray-500 dark:text-gray-400">
-                    {{ $peminjaman->kode_pinjam }}
+                    #{{ $peminjaman->id }}
                 </p>
             </div>
 
@@ -32,13 +32,13 @@
                 <x-status-badge :status="$peminjaman->status" />
 
                 <a href="{{ route('peminjaman.index') }}"
-                    class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                    class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                     Kembali
                 </a>
             </div>
         </div>
 
-        <section class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-gray-700 dark:bg-gray-800">
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <div>
                     <p class="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Nama</p>
@@ -142,31 +142,31 @@
                     <thead>
                         <tr>
                             <th scope="col"
-                                class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                 Barang
                             </th>
                             <th scope="col"
-                                class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                 Unit/Qty
                             </th>
                             <th scope="col"
-                                class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                 Kondisi Awal
                             </th>
                             <th scope="col"
-                                class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                 Status Item
                             </th>
                             <th scope="col"
-                                class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                 Kondisi Kembali
                             </th>
                             <th scope="col"
-                                class="border-b border-gray-200 px-3 py-2 text-left text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                 Waktu
                             </th>
                             <th scope="col"
-                                class="border-b border-gray-200 px-3 py-2 text-right text-[11px] uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                class="border-b border-gray-200 bg-gray-50/50 px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
                                 Aksi
                             </th>
                         </tr>
@@ -210,7 +210,7 @@
                                 $catatanId = 'catatan-kembali-' . $detail->id;
                             @endphp
 
-                            <tr class="{{ $rowClass }} hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                            <tr class="{{ $rowClass }} group transition-colors even:bg-slate-50/50 hover:bg-indigo-50/50 dark:even:bg-slate-800/30 dark:hover:bg-indigo-900/20">
                                 <td
                                     class="border-b border-gray-100 px-3 py-2 text-sm font-medium text-gray-800 dark:border-gray-700 dark:text-gray-100">
                                     {{ $detail->barang?->nama ?? '-' }}
@@ -275,7 +275,7 @@
                                             }
                                         }">
                                             <button type="button"
-                                                class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700"
+                                                class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-emerald-700 shadow-md shadow-emerald-500/30"
                                                 @click="open = true">
                                                 <i class="bi bi-arrow-return-left" aria-hidden="true"></i>
                                                 <span>Kembalikan</span>
@@ -345,7 +345,7 @@
                                                         </label>
 
                                                         <textarea id="{{ $catatanId }}" name="catatan_kembali" rows="3"
-                                                            class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ $modalShouldOpen ? old('catatan_kembali') : '' }}</textarea>
+                                                            class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ $modalShouldOpen ? old('catatan_kembali') : '' }}</textarea>
 
                                                         @if ($modalShouldOpen)
                                                             @error('catatan_kembali')
@@ -358,14 +358,14 @@
 
                                                     <div class="flex justify-end gap-2">
                                                         <button type="button"
-                                                            class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                                                            class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                                                             @click="open = false" :disabled="loading">
                                                             Batal
                                                         </button>
 
                                                         <button type="submit" :disabled="loading"
                                                             :class="loading ? 'opacity-70 cursor-not-allowed' : ''"
-                                                            class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700">
+                                                            class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-emerald-700 shadow-md shadow-emerald-500/30">
                                                             <span x-show="!loading">Simpan Pengembalian</span>
                                                             <span x-show="loading" class="inline-flex items-center gap-2">
                                                                 <i class="bi bi-arrow-repeat animate-spin-smooth"></i>

@@ -4,12 +4,6 @@
 @section('meta_description', 'Edit data barang inventaris Shiro.')
 
 @section('content')
-    @php
-        $qtyTerpakai =
-            $barang->tipe === 'stok'
-                ? (int) $barang->qty_dipinjam + (int) $barang->qty_rusak + (int) $barang->qty_keluar
-                : 0;
-    @endphp
 
     <div class="space-y-3">
         <div class="flex items-center justify-between gap-3">
@@ -24,41 +18,20 @@
 
             <div class="flex items-center gap-2">
                 <a href="{{ route('barang.show', $barang) }}"
-                    class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                    class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                     Kembali
                 </a>
             </div>
         </div>
 
         <form method="POST" action="{{ route('barang.update', $barang) }}"
-            class="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800 lg:p-4"
+            class="rounded-2xl border border-gray-100 bg-white p-5 shadow-md dark:border-gray-700 dark:bg-gray-800"
             x-data="{
                 tipe: @js(old('tipe', $barang->tipe)),
-                merekId: @js(old('merek_id', $barang->merek_id ? (string) $barang->merek_id : ($barang->merek_manual ? 'lainnya' : ''))),
-                lokasiId: @js(old('lokasi_id', $barang->lokasi_id ? (string) $barang->lokasi_id : ($barang->lokasi_manual ? 'lainnya' : ''))),
-                kondisi: Number(@js(old('kondisi_awal', $barang->tipe === 'stok' ? (int) $barang->kondisi_stok : 100))),
+                merekId: @js(old('merek_id', $barang->merek_id ? (string) $barang->merek_id : '')),
+                lokasiId: @js(old('lokasi_id', $barang->lokasi_id ? (string) $barang->lokasi_id : '')),
+                isiCatatan: @js(old('catatan', $barang->catatan) !== null && old('catatan', $barang->catatan) !== ''),
                 loading: false,
-            
-                get labelKondisi() {
-                    if (this.kondisi >= 80) return 'Baik';
-                    if (this.kondisi >= 60) return 'Lumayan';
-                    if (this.kondisi >= 35) return 'Rusak';
-                    return 'Rusak Parah';
-                },
-            
-                get warnaKondisiText() {
-                    if (this.kondisi >= 80) return 'text-emerald-600';
-                    if (this.kondisi >= 60) return 'text-blue-600';
-                    if (this.kondisi >= 35) return 'text-amber-600';
-                    return 'text-red-600';
-                },
-            
-                get warnaSlider() {
-                    if (this.kondisi >= 80) return 'accent-color: #059669';
-                    if (this.kondisi >= 60) return 'accent-color: #2563eb';
-                    if (this.kondisi >= 35) return 'accent-color: #f59e0b';
-                    return 'accent-color: #ef4444';
-                }
             }" @submit="loading = true">
             @csrf
             @method('PATCH')
@@ -106,7 +79,7 @@
                             </label>
                             <input id="nama" name="nama" type="text" value="{{ old('nama', $barang->nama) }}"
                                 required maxlength="200"
-                                class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                             @error('nama')
                                 <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                             @enderror
@@ -118,7 +91,7 @@
                                 Kategori <span class="text-red-500">*</span>
                             </label>
                             <select id="kategori_id" name="kategori_id" required
-                                class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                                 <option value="">Pilih kategori</option>
                                 @foreach ($kategori as $item)
                                     <option value="{{ $item->id }}" @selected((string) old('kategori_id', $barang->kategori_id) === (string) $item->id)>
@@ -136,31 +109,29 @@
                                 Merek
                             </label>
                             <select id="merek_id" name="merek_id" x-model="merekId"
-                                class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                                 <option value="">Pilih merek</option>
                                 @foreach ($merek as $item)
                                     <option value="{{ $item->id }}" @selected((string) old('merek_id', $barang->merek_id) === (string) $item->id)>
                                         {{ $item->nama }}
                                     </option>
                                 @endforeach
-                                <option value="lainnya" @selected(old('merek_id', $barang->merek_manual ? 'lainnya' : '') === 'lainnya')>
-                                    Lainnya
-                                </option>
+                                <option value="lainnya" @selected((string) old('merek_id') === 'lainnya')>Lainnya</option>
                             </select>
 
-                            @error('merek_id')
-                                <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
-                            @enderror
-
                             <div x-cloak x-show="merekId === 'lainnya'" x-transition class="mt-2">
-                                <input name="merek_manual" type="text"
-                                    value="{{ old('merek_manual', $barang->merek_manual) }}"
-                                    placeholder="Masukkan merek manual"
-                                    class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                <!-- Input otomatis untuk merek baru, menjaga database tetap bersih dengan membuat Merek master data on-the-fly -->
+                                <input id="merek_manual" name="merek_manual" type="text" value="{{ old('merek_manual') }}"
+                                    class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                                    placeholder="Ketik nama merek baru...">
                                 @error('merek_manual')
                                     <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                                 @enderror
                             </div>
+
+                            @error('merek_id')
+                                <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div>
@@ -168,31 +139,29 @@
                                 Lokasi
                             </label>
                             <select id="lokasi_id" name="lokasi_id" x-model="lokasiId"
-                                class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                                 <option value="">Pilih lokasi</option>
                                 @foreach ($lokasi as $item)
                                     <option value="{{ $item->id }}" @selected((string) old('lokasi_id', $barang->lokasi_id) === (string) $item->id)>
                                         {{ $item->nama }}
                                     </option>
                                 @endforeach
-                                <option value="lainnya" @selected(old('lokasi_id', $barang->lokasi_manual ? 'lainnya' : '') === 'lainnya')>
-                                    Lainnya
-                                </option>
+                                <option value="lainnya" @selected((string) old('lokasi_id') === 'lainnya')>Lainnya</option>
                             </select>
 
-                            @error('lokasi_id')
-                                <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
-                            @enderror
-
                             <div x-cloak x-show="lokasiId === 'lainnya'" x-transition class="mt-2">
-                                <input name="lokasi_manual" type="text"
-                                    value="{{ old('lokasi_manual', $barang->lokasi_manual) }}"
-                                    placeholder="Masukkan lokasi manual"
-                                    class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                <!-- Input otomatis untuk lokasi baru, menjaga database tetap bersih dengan membuat Lokasi master data on-the-fly -->
+                                <input id="lokasi_manual" name="lokasi_manual" type="text" value="{{ old('lokasi_manual') }}"
+                                    class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                                    placeholder="Ketik nama lokasi baru...">
                                 @error('lokasi_manual')
                                     <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                                 @enderror
                             </div>
+
+                            @error('lokasi_id')
+                                <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div>
@@ -201,7 +170,7 @@
                                 Spesifikasi
                             </label>
                             <textarea id="spesifikasi" name="spesifikasi" rows="3"
-                                class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('spesifikasi', $barang->spesifikasi) }}</textarea>
+                                class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('spesifikasi', $barang->spesifikasi) }}</textarea>
                             @error('spesifikasi')
                                 <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                             @enderror
@@ -216,7 +185,7 @@
                             </label>
                             <input id="tahun_pengadaan" name="tahun_pengadaan" type="number" min="2000"
                                 max="{{ now()->year + 1 }}" value="{{ old('tahun_pengadaan', $barang->tahun_pengadaan) }}"
-                                class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                                class="block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
                             @error('tahun_pengadaan')
                                 <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                             @enderror
@@ -254,20 +223,24 @@
                         @endif
 
                         @if ($barang->tipe === 'stok')
-                            <div>
-                                <label for="qty_total"
-                                    class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                                    Jumlah Total
-                                </label>
-                                <input id="qty_total" name="qty_total" type="number" min="{{ $qtyTerpakai }}"
-                                    value="{{ old('qty_total', (int) $barang->qty_total) }}"
-                                    class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
-                                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                                    Jumlah total stok dapat diperbarui, tetapi tidak boleh lebih kecil dari total stok yang
-                                    sudah dipinjam, rusak, atau keluar.
+                            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40">
+                                <p class="text-xs font-medium text-gray-700 dark:text-gray-200">
+                                    Informasi Jumlah Stok
                                 </p>
 
-                                <div class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                    <p>
+                                        Total Stok:
+                                        <span class="font-medium text-gray-700 dark:text-gray-200">
+                                            {{ (int) $barang->qty_total }}
+                                        </span>
+                                    </p>
+                                    <p>
+                                        Tersedia:
+                                        <span class="font-medium text-gray-700 dark:text-gray-200">
+                                            {{ (int) $barang->qty_tersedia }}
+                                        </span>
+                                    </p>
                                     <p>
                                         Dipinjam:
                                         <span class="font-medium text-gray-700 dark:text-gray-200">
@@ -280,59 +253,26 @@
                                             {{ (int) $barang->qty_rusak }}
                                         </span>
                                     </p>
-                                    <p>
-                                        Keluar:
-                                        <span class="font-medium text-gray-700 dark:text-gray-200">
-                                            {{ (int) $barang->qty_keluar }}
-                                        </span>
-                                    </p>
-                                    <p>
-                                        Minimum total:
-                                        <span class="font-medium text-gray-700 dark:text-gray-200">
-                                            {{ $qtyTerpakai }}
-                                        </span>
-                                    </p>
                                 </div>
 
-                                @error('qty_total')
-                                    <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <div class="mb-1 flex items-center justify-between gap-3">
-                                    <label for="kondisi_awal"
-                                        class="block text-xs font-medium text-gray-600 dark:text-gray-300">
-                                        Kondisi Stok % <span class="text-red-500">*</span>
-                                    </label>
-                                    <span class="text-sm font-semibold" :class="warnaKondisiText">
-                                        <span x-text="labelKondisi"></span> <span x-text="kondisi + '%'"></span>
-                                    </span>
+                                <div class="mt-3 rounded-md bg-amber-50 p-2 border border-amber-100 dark:bg-amber-900/20 dark:border-amber-800/50 text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    <strong>Penyesuaian Stok Terkunci.</strong>
+                                    Untuk menjaga riwayat dan integritas audit, penambahan atau pengurangan jumlah stok hanya bisa dilakukan melalui menu <strong>Transaksi (Barang Masuk / Barang Keluar)</strong>.
                                 </div>
-
-                                <input id="kondisi_awal" name="kondisi_awal" type="range" min="0"
-                                    max="100" x-model="kondisi" :style="warnaSlider" class="block w-full">
-
-                                <div
-                                    class="mt-2 flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400">
-                                    <span>Rusak Parah 0%</span>
-                                    <span>Rusak 35%</span>
-                                    <span>Lumayan 60%</span>
-                                    <span>Baik 80%</span>
-                                </div>
-
-                                @error('kondisi_awal')
-                                    <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
-                                @enderror
                             </div>
                         @endif
 
                         <div>
-                            <label for="catatan" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                                Catatan
+                            <label class="mb-1 flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer">
+                                <input type="checkbox" x-model="isiCatatan"
+                                    class="rounded border-gray-300 text-amber-500 focus:ring-amber-500 dark:border-gray-600 dark:bg-gray-900">
+                                <span>Catatan</span>
                             </label>
-                            <textarea id="catatan" name="catatan" rows="3"
-                                class="block w-full rounded-md border-gray-300 px-2.5 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan', $barang->catatan) }}</textarea>
+                            <textarea x-cloak x-show="isiCatatan" x-transition
+                                id="catatan" name="catatan" rows="3"
+                                :disabled="!isiCatatan"
+                                class="mt-1 block w-full rounded-lg border-gray-200 bg-gray-50 px-2.5 py-1.5 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">{{ old('catatan', $barang->catatan) }}</textarea>
                             @error('catatan')
                                 <p class="mt-1 text-[11px] text-red-600 dark:text-red-400">{{ $message }}</p>
                             @enderror
@@ -342,12 +282,12 @@
 
                 <div class="flex justify-end gap-2 border-t border-gray-200 pt-3 dark:border-gray-700">
                     <a href="{{ route('barang.show', $barang) }}"
-                        class="rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+                        class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
                         Batal
                     </a>
 
                     <button type="submit" :disabled="loading" :class="loading ? 'opacity-70 cursor-not-allowed' : ''"
-                        class="inline-flex items-center gap-2 rounded-md bg-amber-500 px-4 py-1.5 text-sm text-white hover:bg-amber-600">
+                        class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-1.5 text-sm text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-indigo-700 shadow-md shadow-indigo-500/30">
                         <span x-show="!loading">Perbarui</span>
                         <span x-show="loading" class="inline-flex items-center gap-2">
                             <i class="bi bi-arrow-repeat animate-spin-smooth"></i>

@@ -20,7 +20,7 @@ class PeminjamanSiswaRequest extends FormRequest
 
             if (json_last_error() === JSON_ERROR_NONE && is_array($parsed)) {
                 $decodedItems = collect($parsed)
-                    ->filter(fn($item) => is_array($item))
+                    ->filter(fn ($item) => is_array($item))
                     ->map(function (array $item) {
                         return [
                             'barang_id' => isset($item['barang_id']) ? (int) $item['barang_id'] : null,

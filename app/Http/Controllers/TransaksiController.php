@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\InventarisUpdated;
+use App\Helpers\KondisiHelper;
 use App\Http\Requests\BarangKeluarRequest;
 use App\Http\Requests\BarangMasukRequest;
 use App\Models\Barang;
-use App\Models\Kategori;
-use App\Models\Lokasi;
-use App\Models\Merek;
 use App\Models\Transaksi;
 use App\Models\UnitBarang;
-use Illuminate\Http\RedirectResponse;
+use App\Services\UnitBarangService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -18,6 +17,10 @@ use Illuminate\View\View;
 
 class TransaksiController extends Controller
 {
+    public function __construct(
+        protected UnitBarangService $unitBarangService
+    ) {}
+
     public function masuk(Request $request): View
     {
         $filterTanggal = $this->resolveFilterTanggal($request);
@@ -36,16 +39,16 @@ class TransaksiController extends Controller
             ->withQueryString();
 
         return view('transaksi.masuk', [
-            'kategori' => Kategori::query()->orderBy('nama')->get(['id', 'nama']),
-            'merek' => Merek::query()->orderBy('nama')->get(['id', 'nama']),
-            'lokasi' => Lokasi::query()->orderBy('nama')->get(['id', 'nama']),
+            'kategori' => \App\Models\Kategori::getCachedDropdown(),
+            'merek' => \App\Models\Merek::getCachedDropdown(),
+            'lokasi' => \App\Models\Lokasi::getCachedDropdown(),
             'riwayat' => $riwayat,
             'filterTanggal' => $filterTanggal,
             'barangTerpilih' => $this->getBarangTerpilihMasuk(),
         ]);
     }
 
-    public function simpanMasuk(BarangMasukRequest $request): RedirectResponse
+    public function simpanMasuk(BarangMasukRequest $request)
     {
         $data = $request->validated();
         $penggunaId = (int) $request->user()->getAuthIdentifier();
@@ -73,7 +76,6 @@ class TransaksiController extends Controller
                 'jumlah' => (int) $data['jumlah_masuk'],
                 'alasan_keluar' => null,
                 'lokasi_tujuan_id' => null,
-                'lokasi_tujuan_manual' => null,
                 'sumber_tujuan' => $data['sumber_tujuan'] ?? null,
                 'tanggal_transaksi' => $data['tanggal_transaksi'],
                 'kondisi_saat_itu' => (int) $data['kondisi_saat_itu'],
@@ -81,6 +83,18 @@ class TransaksiController extends Controller
                 'pengguna_id' => $penggunaId,
             ]);
         });
+
+        InventarisUpdated::dispatch(
+            tipe: 'masuk',
+            pesan: 'Barang masuk '.$data['jumlah_masuk'].' item',
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Barang masuk berhasil dicatat.',
+            ]);
+        }
 
         return back()->with('sukses', 'Barang masuk berhasil dicatat.');
     }
@@ -105,14 +119,14 @@ class TransaksiController extends Controller
             ->withQueryString();
 
         return view('transaksi.keluar', [
-            'lokasi' => Lokasi::query()->orderBy('nama')->get(['id', 'nama']),
+            'lokasi' => \App\Models\Lokasi::getCachedDropdown(),
             'riwayat' => $riwayat,
             'filterTanggal' => $filterTanggal,
             'barangTerpilih' => $this->getBarangTerpilihKeluar(),
         ]);
     }
 
-    public function simpanKeluar(BarangKeluarRequest $request): RedirectResponse
+    public function simpanKeluar(BarangKeluarRequest $request)
     {
         $data = $request->validated();
         $penggunaId = (int) $request->user()->getAuthIdentifier();
@@ -125,16 +139,30 @@ class TransaksiController extends Controller
 
             if ($data['alasan_keluar'] === 'pindah_lokasi') {
                 $this->prosesKeluarPindahLokasi($barang, $data, $penggunaId);
+
                 return;
             }
 
             if ($barang->tipe === 'aset') {
                 $this->prosesKeluarAset($barang, $data, $penggunaId);
+
                 return;
             }
 
             $this->prosesKeluarStok($barang, $data, $penggunaId);
         });
+
+        InventarisUpdated::dispatch(
+            tipe: 'keluar',
+            pesan: 'Barang keluar berhasil dicatat',
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Barang keluar berhasil dicatat.',
+            ]);
+        }
 
         return back()->with('sukses', 'Barang keluar berhasil dicatat.');
     }
@@ -145,9 +173,7 @@ class TransaksiController extends Controller
             'nama' => $data['nama'],
             'kategori_id' => $data['kategori_id'],
             'merek_id' => $data['merek_id'] ?? null,
-            'merek_manual' => !empty($data['merek_id']) ? null : ($data['merek_manual'] ?? null),
             'lokasi_id' => $data['lokasi_id'] ?? null,
-            'lokasi_manual' => !empty($data['lokasi_id']) ? null : ($data['lokasi_manual'] ?? null),
             'tipe' => $data['tipe'],
             'spesifikasi' => $data['spesifikasi'] ?? null,
             'tahun_pengadaan' => $data['tahun_pengadaan'] ?? null,
@@ -162,13 +188,13 @@ class TransaksiController extends Controller
         ]);
 
         if ($barang->tipe === 'aset') {
-            $barang->load('kategori:id,nama');
+            $serials = $this->parseSerialList($data['serial_number_list'] ?? null);
 
-            $this->buatUnitBarang(
+            $this->unitBarangService->buatUnit(
                 barang: $barang,
                 jumlah: (int) $data['jumlah_masuk'],
-                kondisi: (int) $data['kondisi_saat_itu'],
-                serialRaw: $data['serial_number_list'] ?? null
+                kondisiAwal: (int) $data['kondisi_saat_itu'],
+                serials: $serials,
             );
         }
 
@@ -179,12 +205,13 @@ class TransaksiController extends Controller
     {
         if ($barang->tipe === 'aset') {
             $barang->loadMissing('kategori:id,nama');
+            $serials = $this->parseSerialList($data['serial_number_list'] ?? null);
 
-            $this->buatUnitBarang(
+            $this->unitBarangService->buatUnit(
                 barang: $barang,
                 jumlah: (int) $data['jumlah_masuk'],
-                kondisi: (int) $data['kondisi_saat_itu'],
-                serialRaw: $data['serial_number_list'] ?? null
+                kondisiAwal: (int) $data['kondisi_saat_itu'],
+                serials: $serials,
             );
 
             return;
@@ -201,11 +228,9 @@ class TransaksiController extends Controller
     protected function prosesKeluarPindahLokasi(Barang $barang, array $data, int $penggunaId): void
     {
         $lokasiTujuanId = $data['lokasi_tujuan_id'] ?? null;
-        $lokasiTujuanManual = !empty($lokasiTujuanId) ? null : ($data['lokasi_tujuan_manual'] ?? null);
 
         $barang->update([
             'lokasi_id' => $lokasiTujuanId,
-            'lokasi_manual' => $lokasiTujuanManual,
         ]);
 
         if ($barang->tipe === 'aset') {
@@ -226,7 +251,6 @@ class TransaksiController extends Controller
             'jumlah' => $jumlah,
             'alasan_keluar' => 'pindah_lokasi',
             'lokasi_tujuan_id' => $lokasiTujuanId,
-            'lokasi_tujuan_manual' => $lokasiTujuanManual,
             'sumber_tujuan' => null,
             'tanggal_transaksi' => $data['tanggal_transaksi'],
             'kondisi_saat_itu' => $kondisi,
@@ -238,7 +262,7 @@ class TransaksiController extends Controller
     protected function prosesKeluarAset(Barang $barang, array $data, int $penggunaId): void
     {
         $unitIds = collect($data['unit_barang_ids'] ?? [])
-            ->map(fn($id) => (int) $id)
+            ->map(fn ($id) => (int) $id)
             ->filter()
             ->unique()
             ->values();
@@ -274,7 +298,6 @@ class TransaksiController extends Controller
                 'jumlah' => 1,
                 'alasan_keluar' => $data['alasan_keluar'],
                 'lokasi_tujuan_id' => null,
-                'lokasi_tujuan_manual' => null,
                 'sumber_tujuan' => $data['sumber_tujuan'] ?? null,
                 'tanggal_transaksi' => $data['tanggal_transaksi'],
                 'kondisi_saat_itu' => (int) $unit->kondisi,
@@ -283,7 +306,7 @@ class TransaksiController extends Controller
             ]);
         }
 
-        $semuaKeluar = !$barang->unitBarang()
+        $semuaKeluar = ! $barang->unitBarang()
             ->where('status', '!=', 'keluar')
             ->exists();
 
@@ -342,88 +365,12 @@ class TransaksiController extends Controller
             'jumlah' => $jumlah,
             'alasan_keluar' => $alasan,
             'lokasi_tujuan_id' => null,
-            'lokasi_tujuan_manual' => null,
             'sumber_tujuan' => $data['sumber_tujuan'] ?? null,
             'tanggal_transaksi' => $data['tanggal_transaksi'],
             'kondisi_saat_itu' => (int) $barang->kondisi_stok,
             'catatan' => $data['catatan'] ?? null,
             'pengguna_id' => $penggunaId,
         ]);
-    }
-
-    protected function buatUnitBarang(Barang $barang, int $jumlah, int $kondisi, ?string $serialRaw = null): void
-    {
-        $serials = collect(preg_split('/\r\n|\r|\n/', (string) $serialRaw))
-            ->map(fn($item) => trim((string) $item))
-            ->filter()
-            ->values();
-
-        $prefix = mb_strtoupper(mb_substr($barang->kategori->nama, 0, 3));
-        $nomorAwal = $barang->unitBarang()->count();
-        $statusAwal = $kondisi <= 34 ? 'rusak' : 'tersedia';
-
-        for ($i = 1; $i <= $jumlah; $i++) {
-            $urutan = $nomorAwal + $i;
-
-            $barang->unitBarang()->create([
-                'nomor_unit' => $prefix . '-' . str_pad((string) $urutan, 3, '0', STR_PAD_LEFT),
-                'serial_number' => $serials[$i - 1] ?? null,
-                'kondisi' => $kondisi,
-                'status' => $statusAwal,
-                'catatan' => null,
-            ]);
-        }
-    }
-
-    protected function formatBarangAutocomplete(Barang $barang): array
-    {
-        $kondisi = $barang->tipe === 'aset'
-            ? (int) round((float) ($barang->rata_kondisi_unit ?? 0))
-            : (int) ($barang->kondisi_stok ?? 100);
-
-        return [
-            'id' => $barang->id,
-            'nama' => $barang->nama,
-            'tipe' => $barang->tipe,
-            'kategori' => $barang->kategori?->nama,
-            'merek' => $barang->label_merek,
-            'lokasi' => $barang->label_lokasi,
-            'kondisi' => $kondisi,
-            'label_kondisi' => $this->labelKondisi($kondisi),
-            'qty_tersedia' => $barang->tipe === 'stok' ? (int) $barang->qty_tersedia : null,
-            'unit_tersedia' => $barang->tipe === 'aset' ? (int) $barang->unit_tersedia_count : null,
-        ];
-    }
-
-    protected function formatBarangAutocompleteKeluar(Barang $barang): array
-    {
-        $kondisi = $barang->tipe === 'aset'
-            ? (int) round((float) ($barang->rata_kondisi_unit ?? 0))
-            : (int) ($barang->kondisi_stok ?? 100);
-
-        return [
-            'id' => $barang->id,
-            'nama' => $barang->nama,
-            'tipe' => $barang->tipe,
-            'kategori' => $barang->kategori?->nama,
-            'merek' => $barang->label_merek,
-            'lokasi' => $barang->label_lokasi,
-            'kondisi' => $kondisi,
-            'label_kondisi' => $this->labelKondisi($kondisi),
-            'qty_tersedia' => (int) $barang->qty_tersedia,
-            'unit_tersedia' => (int) ($barang->unit_tersedia_count ?? 0),
-            'unit_rusak' => (int) ($barang->unit_rusak_count ?? 0),
-        ];
-    }
-
-    protected function labelKondisi(int $kondisi): string
-    {
-        return match (true) {
-            $kondisi >= 80 => 'Baik',
-            $kondisi >= 60 => 'Lumayan',
-            $kondisi >= 35 => 'Rusak',
-            default => 'Rusak Parah',
-        };
     }
 
     protected function resolveFilterTanggal(Request $request): array
@@ -434,11 +381,50 @@ class TransaksiController extends Controller
         ];
     }
 
+    protected function parseSerialList(?string $raw): ?array
+    {
+        if ($raw === null || trim($raw) === '') {
+            return null;
+        }
+
+        return collect(preg_split('/\r\n|\r|\n/', $raw))
+            ->map(fn (string $item) => trim($item))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    protected function formatBarangAutocomplete(Barang $barang, bool $includeRusak = false): array
+    {
+        $kondisi = $barang->tipe === 'aset'
+            ? (int) round((float) ($barang->rata_kondisi_unit ?? 0))
+            : (int) ($barang->kondisi_stok ?? 100);
+
+        $result = [
+            'id' => $barang->id,
+            'nama' => $barang->nama,
+            'tipe' => $barang->tipe,
+            'kategori' => $barang->getAttribute('kategori')?->nama,
+            'merek' => $barang->label_merek,
+            'lokasi' => $barang->label_lokasi,
+            'kondisi' => $kondisi,
+            'label_kondisi' => KondisiHelper::label($kondisi),
+            'qty_tersedia' => (int) $barang->qty_tersedia,
+            'unit_tersedia' => (int) ($barang->unit_tersedia_count ?? 0),
+        ];
+
+        if ($includeRusak) {
+            $result['unit_rusak'] = (int) ($barang->unit_rusak_count ?? 0);
+        }
+
+        return $result;
+    }
+
     protected function getBarangTerpilihMasuk(): ?array
     {
         $barangId = old('barang_id');
 
-        if (!$barangId) {
+        if (! $barangId) {
             return null;
         }
 
@@ -449,7 +435,7 @@ class TransaksiController extends Controller
                 'lokasi:id,nama',
             ])
             ->withCount([
-                'unitBarang as unit_tersedia_count' => fn($sub) => $sub->where('status', 'tersedia'),
+                'unitBarang as unit_tersedia_count' => fn ($sub) => $sub->where('status', 'tersedia'),
             ])
             ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
             ->find($barangId);
@@ -461,7 +447,7 @@ class TransaksiController extends Controller
     {
         $barangId = old('barang_id');
 
-        if (!$barangId) {
+        if (! $barangId) {
             return null;
         }
 
@@ -472,12 +458,12 @@ class TransaksiController extends Controller
                 'lokasi:id,nama',
             ])
             ->withCount([
-                'unitBarang as unit_tersedia_count' => fn($sub) => $sub->where('status', 'tersedia'),
-                'unitBarang as unit_rusak_count' => fn($sub) => $sub->where('status', 'rusak'),
+                'unitBarang as unit_tersedia_count' => fn ($sub) => $sub->where('status', 'tersedia'),
+                'unitBarang as unit_rusak_count' => fn ($sub) => $sub->where('status', 'rusak'),
             ])
             ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
             ->find($barangId);
 
-        return $barang ? $this->formatBarangAutocompleteKeluar($barang) : null;
+        return $barang ? $this->formatBarangAutocomplete($barang, true) : null;
     }
 }
