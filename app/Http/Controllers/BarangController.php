@@ -54,10 +54,14 @@ class BarangController extends Controller
 
         if ($filters['q'] !== '') {
             $query->where(function (Builder $q) use ($filters) {
-                $q->where('nama', 'like', '%'.$filters['q'].'%')
-                    ->orWhereHas('kategori', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$filters['q'].'%'))
-                    ->orWhereHas('merek', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$filters['q'].'%'))
-                    ->orWhereHas('lokasi', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$filters['q'].'%'));
+                // [OPTIMASI DB VERCEL]: Jika driver database adalah PostgreSQL, gunakan 'ilike' agar pencarian tidak sensitif terhadap huruf besar/kecil.
+                // Jika di lokal MySQL, tetap gunakan 'like'. Ini membuat kode aman 100% di semua lingkungan.
+                $likeOperator = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
+                $q->where('nama', $likeOperator, '%'.$filters['q'].'%')
+                    ->orWhereHas('kategori', fn (Builder $sub) => $sub->where('nama', $likeOperator, '%'.$filters['q'].'%'))
+                    ->orWhereHas('merek', fn (Builder $sub) => $sub->where('nama', $likeOperator, '%'.$filters['q'].'%'))
+                    ->orWhereHas('lokasi', fn (Builder $sub) => $sub->where('nama', $likeOperator, '%'.$filters['q'].'%'));
             });
         }
 
@@ -400,9 +404,12 @@ class BarangController extends Controller
             ->withAvg('unitBarang as rata_kondisi_unit', 'kondisi')
             ->where('aktif', true)
             ->where(function (Builder $query) use ($q) {
-                $query->where('nama', 'like', '%'.$q.'%')
-                    ->orWhereHas('kategori', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$q.'%'))
-                    ->orWhereHas('merek', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$q.'%'));
+                // [OPTIMASI DB VERCEL]: Sama seperti di index, deteksi otomatis driver DB agar Live Search bisa kebal huruf besar/kecil di Vercel.
+                $likeOperator = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
+                $query->where('nama', $likeOperator, '%'.$q.'%')
+                    ->orWhereHas('kategori', fn (Builder $sub) => $sub->where('nama', $likeOperator, '%'.$q.'%'))
+                    ->orWhereHas('merek', fn (Builder $sub) => $sub->where('nama', $likeOperator, '%'.$q.'%'));
             })
             ->orderBy('nama')
             ->limit(10)
