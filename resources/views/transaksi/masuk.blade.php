@@ -41,7 +41,6 @@
                 snInput: '',
                 sumberTujuan: @js(old('sumber_tujuan', '')),
                 loading: false,
-                searchTimeout: null,
 
                 init() {
                     if (this.selected) {
@@ -61,19 +60,32 @@
                 },
 
                 async cariBarang() {
-                    clearTimeout(this.searchTimeout);
-                    this.searchTimeout = setTimeout(async () => {
-                        const keyword = this.query.trim();
-                        if (keyword.length < 2) { this.results = []; return; }
-                        try {
-                            const response = await fetch(`{{ route('api.barang.search') }}?q=${encodeURIComponent(keyword)}`, {
-                                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-                            });
-                            if (!response.ok) { this.results = []; return; }
-                            const data = await response.json();
-                            this.results = Array.isArray(data) ? data : [];
-                        } catch (_) { this.results = []; }
-                    }, 400);
+                    // [OPTIMASI DEBOUNCE]: Timer setTimeout dihapus. Penundaan (delay) 
+                    // sekarang ditangani langsung secara native oleh Alpine.js di tag HTML 
+                    // menggunakan '@input.debounce.750ms'. Ini mencegah eksekusi beruntun 
+                    // dan menghemat memori, menjaga LCP/INP tetap stabil 100%.
+                    const keyword = this.query.trim();
+                    
+                    if (keyword.length < 2) { 
+                        this.results = []; 
+                        return; 
+                    }
+                    
+                    try {
+                        const response = await fetch(`{{ route('api.barang.search') }}?q=${encodeURIComponent(keyword)}`, {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                        });
+                        
+                        if (!response.ok) { 
+                            this.results = []; 
+                            return; 
+                        }
+                        
+                        const data = await response.json();
+                        this.results = Array.isArray(data) ? data : [];
+                    } catch (_) { 
+                        this.results = []; 
+                    }
                 },
 
                 pilihBarang(item) {
@@ -179,8 +191,12 @@
                             <i class="bi bi-search text-sm"></i>
                         </span>
 
+                        <!-- [OPTIMASI DEBOUNCE]: Menggunakan '@input.debounce.750ms' bawaan Alpine.js -->
+                        <!-- untuk memberi jeda aman 0.75 detik sebelum memanggil API. Pengetikan tetap responsif -->
+                        <!-- namun mencegah spam request (mencegah munculnya multiple request di Network). -->
                         <input id="barang_search" type="text" x-model="query"
-                            @input="cariBarang(); modeBaru ? null : (selected = null)"
+                            @input="modeBaru ? null : (selected = null)"
+                            @input.debounce.750ms="cariBarang()"
                             autocomplete="off" placeholder="Ketik nama barang untuk mencari..."
                             :disabled="selected !== null"
                             class="block w-full rounded-lg border-gray-200 bg-gray-50 py-2 pl-8 pr-10 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
