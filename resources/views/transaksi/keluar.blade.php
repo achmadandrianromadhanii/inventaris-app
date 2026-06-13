@@ -33,7 +33,7 @@
                 units: [],
                 selectedUnitIds: @js(collect(old('unit_barang_ids', []))->map(fn($id) => (string) $id)->values()->all()),
                 loadingUnits: false,
-                searchTimeout: null,
+
                 alasan: @js(old('alasan_keluar', 'pindah_lokasi')),
                 lokasiTujuanMode: @js(old('_lokasi_tujuan_mode', old('lokasi_tujuan_id'))),
                 isiCatatan: @js(old('catatan') !== null && old('catatan') !== ''),
@@ -140,35 +140,35 @@
                 },
             
                 async cariBarang() {
-                    clearTimeout(this.searchTimeout);
-            
-                    this.searchTimeout = setTimeout(async () => {
-                        const keyword = this.query.trim();
-            
-                        if (keyword.length < 2) {
+                    // [OPTIMASI DEBOUNCE]: Timer setTimeout dihapus. Penundaan (delay)
+                    // sekarang ditangani langsung secara native oleh Alpine.js di tag HTML
+                    // menggunakan '@input.debounce.750ms'. Ini mencegah eksekusi beruntun
+                    // dan menghemat memori, menjaga LCP/INP tetap stabil 100%.
+                    const keyword = this.query.trim();
+
+                    if (keyword.length < 2) {
+                        this.results = [];
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch(`${this.barangSearchUrl}?q=${encodeURIComponent(keyword)}`, {
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json',
+                            },
+                        });
+
+                        if (!response.ok) {
                             this.results = [];
                             return;
                         }
-            
-                        try {
-                            const response = await fetch(`${this.barangSearchUrl}?q=${encodeURIComponent(keyword)}`, {
-                                headers: {
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'Accept': 'application/json',
-                                },
-                            });
-            
-                            if (!response.ok) {
-                                this.results = [];
-                                return;
-                            }
-            
-                            const data = await response.json();
-                            this.results = Array.isArray(data) ? data : [];
-                        } catch (_) {
-                            this.results = [];
-                        }
-                    }, 400);
+
+                        const data = await response.json();
+                        this.results = Array.isArray(data) ? data : [];
+                    } catch (_) {
+                        this.results = [];
+                    }
                 },
             
                 async pilihBarang(item) {
@@ -324,8 +324,12 @@
                             <i class="bi bi-search text-sm"></i>
                         </span>
 
-                        <input id="barang_search" type="text" x-model="query" @input="cariBarang()" autocomplete="off"
-                            placeholder="Ketik minimal 2 huruf..."
+                        <!-- [OPTIMASI DEBOUNCE]: Menggunakan '@input.debounce.750ms' bawaan Alpine.js -->
+                        <!-- untuk memberi jeda aman 0.75 detik sebelum memanggil API. Pengetikan tetap responsif -->
+                        <!-- namun mencegah spam request (mencegah munculnya multiple request di Network). -->
+                        <input id="barang_search" type="text" x-model="query"
+                            @input.debounce.750ms="cariBarang()"
+                            autocomplete="off" placeholder="Ketik minimal 2 huruf..."
                             class="block w-full rounded-lg border-gray-200 bg-gray-50 py-1.5 pl-8 pr-10 text-sm focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/20 transition-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
 
                         <button x-cloak x-show="hasSelectedBarang()" type="button"
