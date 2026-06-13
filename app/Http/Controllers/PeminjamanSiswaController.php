@@ -38,7 +38,7 @@ class PeminjamanSiswaController extends Controller
             ->with([
                 'kelas:id,nama',
                 'jurusan:id,nama',
-                'detailPeminjaman' => fn ($query) => $query
+                'detailPeminjaman' => fn($query) => $query
                     ->select([
                         'id',
                         'peminjaman_id',
@@ -63,17 +63,17 @@ class PeminjamanSiswaController extends Controller
             ->select(['id', 'nama', 'tipe', 'kategori_id', 'merek_id'])
             ->with(['merek:id,nama'])
             ->withCount([
-                'unitBarang as unit_tersedia_count' => fn (Builder $sub) => $sub->where('status', 'tersedia'),
+                'unitBarang as unit_tersedia_count' => fn(Builder $sub) => $sub->where('status', 'tersedia'),
             ])
             ->withMax([
-                'unitBarang as kondisi_terbaik' => fn (Builder $sub) => $sub->where('status', 'tersedia'),
+                'unitBarang as kondisi_terbaik' => fn(Builder $sub) => $sub->where('status', 'tersedia'),
             ], 'kondisi')
             ->where('aktif', true)
             ->where('tipe', 'aset')
             // [UPDATE] Filter ketat HANYA dari kategori 'Laptop', tidak mengambil kategori lain.
             // Jika suatu barang adalah laptop tapi kategorinya bukan 'Laptop', maka tidak akan muncul.
-            ->whereHas('kategori', fn ($q) => $q->where('nama', 'Laptop'))
-            ->whereHas('unitBarang', fn ($q) => $q->where('status', 'tersedia'))
+            ->whereHas('kategori', fn($q) => $q->where('nama', 'Laptop'))
+            ->whereHas('unitBarang', fn($q) => $q->where('status', 'tersedia'))
             ->orderBy('nama')
             ->get()
             ->map(function (Barang $barang): array {
@@ -138,17 +138,17 @@ class PeminjamanSiswaController extends Controller
                 'merek:id,nama',
             ])
             ->withCount([
-                'unitBarang as unit_tersedia_count' => fn (Builder $sub) => $sub->where('status', 'tersedia'),
+                'unitBarang as unit_tersedia_count' => fn(Builder $sub) => $sub->where('status', 'tersedia'),
             ])
             ->withMax([
-                'unitBarang as kondisi_terbaik' => fn (Builder $sub) => $sub->where('status', 'tersedia'),
+                'unitBarang as kondisi_terbaik' => fn(Builder $sub) => $sub->where('status', 'tersedia'),
             ], 'kondisi')
             ->where('aktif', true)
             ->where(function (Builder $query) {
                 $query
                     ->where(function (Builder $aset) {
                         $aset->where('tipe', 'aset')
-                            ->whereHas('unitBarang', fn (Builder $sub) => $sub->where('status', 'tersedia'));
+                            ->whereHas('unitBarang', fn(Builder $sub) => $sub->where('status', 'tersedia'));
                     })
                     ->orWhere(function (Builder $stok) {
                         $stok->where('tipe', 'stok')
@@ -161,9 +161,9 @@ class PeminjamanSiswaController extends Controller
                 $likeOperator = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
 
                 $query
-                    ->where('nama', $likeOperator, '%'.$q.'%')
-                    ->orWhereHas('kategori', fn (Builder $sub) => $sub->where('nama', $likeOperator, '%'.$q.'%'))
-                    ->orWhereHas('merek', fn (Builder $sub) => $sub->where('nama', $likeOperator, '%'.$q.'%'));
+                    ->where('nama', $likeOperator, '%' . $q . '%')
+                    ->orWhereHas('kategori', fn(Builder $sub) => $sub->where('nama', $likeOperator, '%' . $q . '%'))
+                    ->orWhereHas('merek', fn(Builder $sub) => $sub->where('nama', $likeOperator, '%' . $q . '%'));
             })
             ->orderBy('nama')
             ->limit(10)
@@ -291,7 +291,7 @@ class PeminjamanSiswaController extends Controller
         return [
             'kelas:id,nama',
             'jurusan:id,nama',
-            'detailPeminjaman' => fn ($query) => $query
+            'detailPeminjaman' => fn($query) => $query
                 ->select([
                     'id',
                     'peminjaman_id',
@@ -330,7 +330,7 @@ class PeminjamanSiswaController extends Controller
                     /** @var string $tipeBarang */
                     $tipeBarang = $detail->barang ? $detail->barang->tipe : 'aset';
                     /** @var string $nomorUnit */
-                    $nomorUnit = $detail->unitBarang ? $detail->unitBarang->nomor_unit : ('Qty '.$detail->jumlah);
+                    $nomorUnit = $detail->unitBarang ? $detail->unitBarang->nomor_unit : ('Qty ' . $detail->jumlah);
                     /** @var int|null $kondisiAwal */
                     $kondisiAwal = $detail->kondisi_awal ?? ($detail->unitBarang ? $detail->unitBarang->kondisi : null);
 
