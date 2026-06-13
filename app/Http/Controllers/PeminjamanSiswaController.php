@@ -156,10 +156,14 @@ class PeminjamanSiswaController extends Controller
                     });
             })
             ->where(function (Builder $query) use ($q) {
+                // [OPTIMASI DB VERCEL]: Deteksi otomatis driver DB agar pencarian
+                // kebal huruf besar/kecil di PostgreSQL (Vercel/Neon).
+                $likeOperator = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
                 $query
-                    ->where('nama', 'like', '%'.$q.'%')
-                    ->orWhereHas('kategori', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$q.'%'))
-                    ->orWhereHas('merek', fn (Builder $sub) => $sub->where('nama', 'like', '%'.$q.'%'));
+                    ->where('nama', $likeOperator, '%'.$q.'%')
+                    ->orWhereHas('kategori', fn (Builder $sub) => $sub->where('nama', $likeOperator, '%'.$q.'%'))
+                    ->orWhereHas('merek', fn (Builder $sub) => $sub->where('nama', $likeOperator, '%'.$q.'%'));
             })
             ->orderBy('nama')
             ->limit(10)

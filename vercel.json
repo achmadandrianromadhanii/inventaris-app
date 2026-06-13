@@ -13,11 +13,17 @@
     "routes": [
         {
             "src": "/(.*\\.(css|js|png|jpg|jpeg|webp|gif|svg|ico|woff|woff2|ttf|eot|otf))$",
-            "dest": "/public/$1"
+            "dest": "/public/$1",
+            "headers": {
+                "Cache-Control": "public, max-age=31536000, immutable"
+            }
         },
         {
             "src": "/build/(.*)",
-            "dest": "/public/build/$1"
+            "dest": "/public/build/$1",
+            "headers": {
+                "Cache-Control": "public, max-age=31536000, immutable"
+            }
         },
         {
             "handle": "filesystem"
@@ -31,7 +37,7 @@
         "APP_ENV": "production",
         "APP_DEBUG": "false",
         "CACHE_STORE": "database",
-        "SESSION_DRIVER": "database",
+        "SESSION_DRIVER": "cookie",
         "LOG_CHANNEL": "stderr",
         "FILESYSTEM_DISK": "local",
         "VERCEL": "1"
