@@ -349,8 +349,12 @@ class DashboardController extends Controller
         // Ketiga data disatukan di level memori (karena masing-masing sudah di-limit agar ringan),
         // kemudian diurutkan dari yang paling baru dan dibatasi 15 item teratas saja.
         // Ini menjamin RAM (memori) server tidak akan penuh (out of memory).
+        //
+        // [FIX VERCEL CRASH]: Menggunakan collect() untuk mengkonversi Eloquent Collection
+        // menjadi Support Collection dasar. Tanpa ini, merge() akan memanggil getKey()
+        // pada array (hasil map), yang menyebabkan fatal error di production.
         // ------------------------------------------------------------------------------------
-        return $transaksi
+        return collect($transaksi)
             ->merge($peminjaman)
             ->merge($pengembalian)
             ->sortByDesc('waktu')
