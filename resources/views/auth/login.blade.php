@@ -23,7 +23,11 @@
 
                 <div class="border-t border-gray-200 dark:border-gray-700"></div>
 
-                <form method="POST" action="{{ route('login') }}" class="space-y-4" x-data="{ showPassword: false, loading: false }"
+                <!-- [FIX LOGIN VERCEL]: Menambahkan data-turbo="false" agar form login -->
+                <!-- menggunakan navigasi browser biasa, bukan Turbo Drive. -->
+                <!-- Turbo Drive mengharapkan response 303 dari POST, yang tidak selalu -->
+                <!-- kompatibel dengan session cookie di Vercel serverless. -->
+                <form method="POST" action="{{ route('login') }}" data-turbo="false" class="space-y-4" x-data="{ showPassword: false, loading: false }"
                     @submit="loading = true">
                     @csrf
 
